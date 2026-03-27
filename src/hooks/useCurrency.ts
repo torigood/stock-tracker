@@ -6,11 +6,15 @@ export function useCurrency() {
   const displayCurrency = usePortfolioStore((s) => s.displayCurrency)
   const setDisplayCurrency = usePortfolioStore((s) => s.setDisplayCurrency)
   const exchangeRate = usePortfolioStore((s) => s.exchangeRate)
+  const exchangeRateOverride = usePortfolioStore((s) => s.exchangeRateOverride)
+
+  // Effective rate: manual override takes precedence
+  const effectiveRate = exchangeRateOverride ?? exchangeRate
 
   const symbol = displayCurrency === 'KRW' ? '₩' : '$'
 
   function fmtAmount(amount: number, inCurrency: 'KRW' | 'USD'): string {
-    const converted = convertToDisplay(amount, inCurrency, displayCurrency, exchangeRate)
+    const converted = convertToDisplay(amount, inCurrency, displayCurrency, effectiveRate)
     const abs = Math.abs(converted)
     const sign = converted < 0 ? '-' : ''
     if (displayCurrency === 'KRW') {
@@ -24,7 +28,7 @@ export function useCurrency() {
 
   function fmtPrice(price: number, inCurrency: 'KRW' | 'USD'): string {
     if (price === 0) return '–'
-    const converted = convertToDisplay(price, inCurrency, displayCurrency, exchangeRate)
+    const converted = convertToDisplay(price, inCurrency, displayCurrency, effectiveRate)
     const abs = Math.abs(converted)
     if (displayCurrency === 'KRW') {
       return '₩' + Math.round(abs).toLocaleString('ko-KR')
@@ -49,7 +53,7 @@ export function useCurrency() {
 
   /** Abbreviated format for large numbers (K, M) */
   function fmtAbbrev(amount: number, inCurrency: 'KRW' | 'USD'): string {
-    const converted = convertToDisplay(amount, inCurrency, displayCurrency, exchangeRate)
+    const converted = convertToDisplay(amount, inCurrency, displayCurrency, effectiveRate)
     const abs = Math.abs(converted)
     const sign = converted < 0 ? '-' : ''
     let str: string
@@ -79,7 +83,8 @@ export function useCurrency() {
   return {
     displayCurrency,
     setDisplayCurrency,
-    exchangeRate,
+    exchangeRate: effectiveRate,
+    rawExchangeRate: exchangeRate,
     symbol,
     fmt,
     fmtPrice: fmtPriceFor,

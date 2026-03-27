@@ -1,5 +1,5 @@
 export type Market = 'KRX' | 'US' | 'ETF'
-export type TradeType = 'buy' | 'sell'
+export type TradeType = 'buy' | 'sell' | 'dividend' | 'split'
 
 export interface Trade {
   id: string
@@ -7,11 +7,11 @@ export interface Trade {
   name: string
   market: Market
   type: TradeType
-  quantity: number
-  price: number
-  date: string                    // 'YYYY-MM-DD'
+  quantity: number      // split: ratio (e.g. 2 for 2:1); dividend: 1
+  price: number         // dividend: total received; split: 0
+  date: string          // 'YYYY-MM-DD'
   note: string
-  createdAt: string               // ISO string
+  createdAt: string     // ISO string
   exchangeRateAtPurchase?: number // USD/KRW rate at trade time (US stocks only)
 }
 
@@ -41,6 +41,7 @@ export interface Position {
   profitLossPercentKRW: number // KRW-based return %
   dayChange: number
   trades: Trade[]
+  dividendTotal: number  // total dividends received (in native currency)
 }
 
 export interface PortfolioSummary {

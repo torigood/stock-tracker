@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import type { Position } from '../../types'
 import { formatPercent, formatNumber } from '../../utils/calculations'
 import { RefreshIcon } from '../Layout/Icons'
@@ -11,9 +12,42 @@ interface Props {
   onSelect: (position: Position) => void
 }
 
+type SortKey = 'quantity' | 'avgPrice' | 'currentPrice' | 'totalValue' | 'profitLoss' | 'profitLossPercent'
+
 export function PositionTable({ positions, loading, onRefresh, onSelect }: Props) {
   const { fmtPrice, fmt, displayCurrency } = useCurrency()
   const targetPrices = usePortfolioStore((s) => s.targetPrices)
+  const setManualPrice = usePortfolioStore((s) => s.setManualPrice)
+  const manualPrices = usePortfolioStore((s) => s.manualPrices)
+
+  const [sortKey, setSortKey] = useState<SortKey>('totalValue')
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc')
+  const [editingPrice, setEditingPrice] = useState<string | null>(null) // ticker
+  const [manualPriceInput, setManualPriceInput] = useState('')
+
+  function handleSort(key: SortKey) {
+    if (sortKey === key) {
+      setSortDir((d) => d === 'asc' ? 'desc' : 'asc')
+    } else {
+      setSortKey(key)
+      setSortDir('desc')
+    }
+  }
+
+  function sortedPositions(): Position[] {
+    return [...positions].sort((a, b) => {
+      let av = 0, bv = 0
+      switch (sortKey) {
+        case 'quantity': av = a.quantity; bv = b.quantity; break
+        case 'avgPrice': av = a.avgPrice; bv = b.avgPrice; break
+        case 'currentPrice': av = a.currentPrice; bv = b.currentPrice; break
+        case 'totalValue': av = a.totalValue || a.totalCost; bv = b.totalValue || b.totalCost; break
+        case 'profitLoss': av = useKrwCalc(a) ? a.profitLossKRW : a.profitLoss; bv = useKrwCalc(b) ? b.profitLossKRW : b.profitLoss; break
+        case 'profitLossPercent': av = useKrwCalc(a) ? a.profitLossPercentKRW : a.profitLossPercent; bv = useKrwCalc(b) ? b.profitLossPercentKRW : b.profitLossPercent; break
+      }
+      return sortDir === 'desc' ? bv - av : av - bv
+    })
+  }
 
   // KRW 모드 + USD 종목일 때 원화 기준 수치 사용 여부
   function useKrwCalc(pos: Position) {
@@ -23,11 +57,34 @@ export function PositionTable({ positions, loading, onRefresh, onSelect }: Props
     return (n >= 0 ? '₩' : '-₩') + Math.abs(Math.round(n)).toLocaleString('ko-KR')
   }
 
+  function submitManualPrice(ticker: string) {
+    const val = parseFloat(manualPriceInput)
+    if (!isNaN(val) && val > 0) {
+      setManualPrice(ticker, val)
+    }
+    setEditingPrice(null)
+    setManualPriceInput('')
+  }
+
+  const targetReachedCount = positions.filter((pos) => {
+    const tp = targetPrices[pos.ticker]
+    return tp && tp > 0 && pos.currentPrice > 0 && pos.currentPrice >= tp
+  }).length
+
+  const sorted = sortedPositions()
+
   return (
     <div className="card overflow-hidden">
       {/* Header */}
       <div className="flex items-center justify-between px-5 py-4 border-b border-slate-800">
-        <h2 className="text-base font-semibold text-slate-100">보유 종목</h2>
+        <div className="flex items-center gap-3">
+          <h2 className="text-base font-semibold text-slate-100">보유 종목</h2>
+          {targetReachedCount > 0 && (
+            <span className="text-[11px] px-2 py-0.5 bg-emerald-900/50 text-emerald-400 rounded-full font-medium">
+              목표 달성 {targetReachedCount}개
+            </span>
+          )}
+        </div>
         <button
           onClick={onRefresh}
           disabled={loading}
@@ -48,16 +105,16 @@ export function PositionTable({ positions, loading, onRefresh, onSelect }: Props
             <thead>
               <tr className="text-xs text-slate-500 border-b border-slate-800">
                 <Th align="left">종목</Th>
-                <Th>보유수량</Th>
-                <Th>평균단가</Th>
-                <Th>현재가</Th>
-                <Th>평가금액</Th>
-                <Th>수익금</Th>
-                <Th>수익률</Th>
+                <SortTh sortKey="quantity" current={sortKey} dir={sortDir} onSort={handleSort}>보유수량</SortTh>
+                <SortTh sortKey="avgPrice" current={sortKey} dir={sortDir} onSort={handleSort}>평균단가</SortTh>
+                <SortTh sortKey="currentPrice" current={sortKey} dir={sortDir} onSort={handleSort}>현재가</SortTh>
+                <SortTh sortKey="totalValue" current={sortKey} dir={sortDir} onSort={handleSort}>평가금액</SortTh>
+                <SortTh sortKey="profitLoss" current={sortKey} dir={sortDir} onSort={handleSort}>수익금</SortTh>
+                <SortTh sortKey="profitLossPercent" current={sortKey} dir={sortDir} onSort={handleSort}>수익률</SortTh>
               </tr>
             </thead>
             <tbody>
-              {positions.map((pos) => {
+              {sorted.map((pos) => {
                 const krw = useKrwCalc(pos)
                 const displayPL = krw ? pos.profitLossKRW : pos.profitLoss
                 const displayPLPct = krw ? pos.profitLossPercentKRW : pos.profitLossPercent
@@ -78,6 +135,7 @@ export function PositionTable({ positions, loading, onRefresh, onSelect }: Props
                   ? (pos.currentPrice / targetPrice) * 100
                   : null
                 const targetReached = targetPct != null && targetPct >= 100
+                const isManual = manualPrices[pos.ticker] != null && pos.currentPrice === manualPrices[pos.ticker]
 
                 return (
                   <tr
@@ -89,7 +147,14 @@ export function PositionTable({ positions, loading, onRefresh, onSelect }: Props
                     <td className="px-5 py-3.5">
                       <div className="flex items-center gap-2">
                         <div>
-                          <p className="font-medium text-slate-100 leading-tight">{pos.name}</p>
+                          <div className="flex items-center gap-1.5">
+                            <p className="font-medium text-slate-100 leading-tight">{pos.name}</p>
+                            {targetReached && (
+                              <span className="text-[10px] px-1.5 py-0.5 bg-emerald-900/60 text-emerald-400 rounded font-medium">
+                                🎯 목표
+                              </span>
+                            )}
+                          </div>
                           <div className="flex items-center gap-1.5 mt-0.5">
                             <span className="font-mono text-xs text-slate-500">{pos.ticker}</span>
                             <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${marketBadge}`}>
@@ -106,28 +171,53 @@ export function PositionTable({ positions, loading, onRefresh, onSelect }: Props
                         : fmtPrice(pos.avgPrice, pos.market, pos.ticker)}
                     </Td>
                     <Td>
-                      <div>
-                        {pos.currentPrice === 0 ? (
-                          <span className="text-slate-600">–</span>
+                      <div onClick={(e) => e.stopPropagation()}>
+                        {editingPrice === pos.ticker ? (
+                          <div className="flex items-center gap-1">
+                            <input
+                              autoFocus
+                              type="number"
+                              value={manualPriceInput}
+                              onChange={(e) => setManualPriceInput(e.target.value)}
+                              onKeyDown={(e) => { if (e.key === 'Enter') submitManualPrice(pos.ticker); if (e.key === 'Escape') setEditingPrice(null) }}
+                              placeholder="가격"
+                              className="w-20 bg-surface-800 border border-indigo-500 rounded px-2 py-0.5 text-xs text-slate-200 font-mono focus:outline-none"
+                            />
+                            <button onClick={() => submitManualPrice(pos.ticker)} className="text-indigo-400 text-xs">✓</button>
+                            <button onClick={() => setEditingPrice(null)} className="text-slate-500 text-xs">✕</button>
+                          </div>
+                        ) : pos.currentPrice === 0 ? (
+                          <div className="flex items-center gap-1">
+                            <span className="text-slate-600">–</span>
+                            <button
+                              onClick={() => { setEditingPrice(pos.ticker); setManualPriceInput('') }}
+                              className="text-[10px] text-slate-600 hover:text-indigo-400 transition-colors"
+                            >
+                              직접입력
+                            </button>
+                          </div>
                         ) : (
-                          <span>{fmtPrice(pos.currentPrice, pos.market, pos.ticker)}</span>
-                        )}
-                        {hasTarget && pos.currentPrice > 0 && targetPct != null && (
-                          <div className="mt-1" onClick={(e) => e.stopPropagation()}>
-                            <div className="flex items-center justify-between text-[10px] text-slate-500 mb-0.5">
-                              <span>{fmtPrice(targetPrice, pos.market, pos.ticker)} 목표</span>
-                              <span className={targetReached ? 'text-emerald-400' : 'text-indigo-400'}>
-                                {Math.min(targetPct, 100).toFixed(1)}%
-                              </span>
+                          <div>
+                            <div className="flex items-center gap-1">
+                              <span>{fmtPrice(pos.currentPrice, pos.market, pos.ticker)}</span>
+                              {isManual && <span className="text-[9px] text-amber-500 px-1 py-0.5 bg-amber-900/30 rounded">수동</span>}
                             </div>
-                            <div className="h-1 bg-slate-700 rounded-full overflow-hidden w-24">
-                              <div
-                                className={`h-full rounded-full transition-all ${
-                                  targetReached ? 'bg-emerald-500' : 'bg-indigo-500'
-                                }`}
-                                style={{ width: `${Math.min(targetPct, 100)}%` }}
-                              />
-                            </div>
+                            {hasTarget && pos.currentPrice > 0 && targetPct != null && (
+                              <div className="mt-1">
+                                <div className="flex items-center justify-between text-[10px] text-slate-500 mb-0.5">
+                                  <span>{fmtPrice(targetPrice, pos.market, pos.ticker)} 목표</span>
+                                  <span className={targetReached ? 'text-emerald-400' : 'text-indigo-400'}>
+                                    {Math.min(targetPct, 100).toFixed(1)}%
+                                  </span>
+                                </div>
+                                <div className="h-1 bg-slate-700 rounded-full overflow-hidden w-24">
+                                  <div
+                                    className={`h-full rounded-full transition-all ${targetReached ? 'bg-emerald-500' : 'bg-indigo-500'}`}
+                                    style={{ width: `${Math.min(targetPct, 100)}%` }}
+                                  />
+                                </div>
+                              </div>
+                            )}
                           </div>
                         )}
                       </div>
@@ -163,6 +253,33 @@ function Th({ children, align = 'right' }: { children: React.ReactNode; align?: 
   return (
     <th className={`px-5 py-3 font-medium tracking-wide text-${align === 'left' ? 'left' : 'right'}`}>
       {children}
+    </th>
+  )
+}
+
+function SortTh({
+  children,
+  sortKey,
+  current,
+  dir,
+  onSort,
+}: {
+  children: React.ReactNode
+  sortKey: SortKey
+  current: SortKey
+  dir: 'asc' | 'desc'
+  onSort: (key: SortKey) => void
+}) {
+  const isActive = current === sortKey
+  return (
+    <th
+      onClick={() => onSort(sortKey)}
+      className="px-5 py-3 font-medium tracking-wide text-right cursor-pointer hover:text-slate-300 transition-colors select-none"
+    >
+      <span className={isActive ? 'text-indigo-400' : ''}>{children}</span>
+      {isActive && (
+        <span className="ml-1 text-indigo-400">{dir === 'desc' ? '▼' : '▲'}</span>
+      )}
     </th>
   )
 }

@@ -1,13 +1,31 @@
 import { useState } from 'react'
 import dayjs from 'dayjs'
-import type { Trade, Market } from '../../types'
+import type { Trade, Market, TradeType } from '../../types'
 import { usePortfolioStore } from '../../store/portfolioStore'
 import { formatPrice } from '../../utils/calculations'
 import { TrashIcon, EditIcon } from '../Layout/Icons'
 
+const TYPE_META: Record<TradeType, { label: string; cls: string }> = {
+  buy: { label: '매수', cls: 'bg-emerald-900/60 text-emerald-300' },
+  sell: { label: '매도', cls: 'bg-red-900/60 text-red-300' },
+  dividend: { label: '배당', cls: 'bg-amber-900/60 text-amber-300' },
+  split: { label: '분할', cls: 'bg-cyan-900/60 text-cyan-300' },
+}
+
+const TYPE_FILTER: { key: TradeType | 'all'; label: string }[] = [
+  { key: 'all', label: '전체' },
+  { key: 'buy', label: '매수' },
+  { key: 'sell', label: '매도' },
+  { key: 'dividend', label: '배당' },
+  { key: 'split', label: '분할' },
+]
+
 export function TradeHistory() {
   const { trades, updateTrade, deleteTrade } = usePortfolioStore()
   const [filterTicker, setFilterTicker] = useState('')
+  const [filterType, setFilterType] = useState<TradeType | 'all'>('all')
+  const [filterFrom, setFilterFrom] = useState('')
+  const [filterTo, setFilterTo] = useState('')
   const [editingNote, setEditingNote] = useState<string | null>(null)
   const [noteText, setNoteText] = useState('')
 
@@ -15,15 +33,24 @@ export function TradeHistory() {
     (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
   )
 
-  const filtered = filterTicker
-    ? sorted.filter(
-        (t) =>
-          t.ticker.toLowerCase().includes(filterTicker.toLowerCase()) ||
-          t.name.toLowerCase().includes(filterTicker.toLowerCase())
-      )
-    : sorted
+  const filtered = sorted.filter((t) => {
+    if (filterTicker && !t.ticker.toLowerCase().includes(filterTicker.toLowerCase()) && !t.name.toLowerCase().includes(filterTicker.toLowerCase())) return false
+    if (filterType !== 'all' && t.type !== filterType) return false
+    if (filterFrom && t.date < filterFrom) return false
+    if (filterTo && t.date > filterTo) return false
+    return true
+  })
 
   const tickers = Array.from(new Set(trades.map((t) => t.ticker))).sort()
+
+  function clearFilters() {
+    setFilterTicker('')
+    setFilterType('all')
+    setFilterFrom('')
+    setFilterTo('')
+  }
+
+  const hasFilter = filterTicker || filterType !== 'all' || filterFrom || filterTo
 
   function startEditNote(trade: Trade) {
     setEditingNote(trade.id)
@@ -49,8 +76,25 @@ export function TradeHistory() {
 
   return (
     <div>
+      {/* Type filter */}
+      <div className="flex flex-wrap gap-1.5 mb-3">
+        {TYPE_FILTER.map((f) => (
+          <button
+            key={f.key}
+            onClick={() => setFilterType(f.key)}
+            className={`text-xs px-2.5 py-1 rounded-full transition-colors ${
+              filterType === f.key
+                ? 'bg-indigo-600 text-white'
+                : 'bg-slate-800 text-slate-400 hover:bg-slate-700'
+            }`}
+          >
+            {f.label}
+          </button>
+        ))}
+      </div>
+
       {/* Filter bar */}
-      <div className="flex flex-wrap items-center gap-3 mb-4">
+      <div className="flex flex-wrap items-center gap-3 mb-3">
         <input
           type="text"
           value={filterTicker}
@@ -58,28 +102,36 @@ export function TradeHistory() {
           placeholder="종목 검색..."
           className="input-field max-w-xs"
         />
-        {filterTicker && (
-          <button
-            onClick={() => setFilterTicker('')}
-            className="text-xs text-slate-400 hover:text-slate-200"
-          >
+        <div className="flex items-center gap-1.5 text-xs text-slate-500">
+          <input
+            type="date"
+            value={filterFrom}
+            onChange={(e) => setFilterFrom(e.target.value)}
+            className="bg-surface-800 border border-slate-700 rounded-lg px-2 py-1.5 text-xs text-slate-300 focus:outline-none focus:border-indigo-500"
+          />
+          <span>~</span>
+          <input
+            type="date"
+            value={filterTo}
+            onChange={(e) => setFilterTo(e.target.value)}
+            className="bg-surface-800 border border-slate-700 rounded-lg px-2 py-1.5 text-xs text-slate-300 focus:outline-none focus:border-indigo-500"
+          />
+        </div>
+        {hasFilter && (
+          <button onClick={clearFilters} className="text-xs text-slate-400 hover:text-slate-200">
             초기화
           </button>
         )}
-        <span className="text-xs text-slate-500 ml-auto">
-          {filtered.length}건
-        </span>
+        <span className="text-xs text-slate-500 ml-auto">{filtered.length}건</span>
       </div>
 
-      {/* Quick filter buttons */}
+      {/* Quick ticker filter */}
       {tickers.length > 0 && (
         <div className="flex flex-wrap gap-1.5 mb-4">
           <button
             onClick={() => setFilterTicker('')}
             className={`text-xs px-2.5 py-1 rounded-full transition-colors ${
-              !filterTicker
-                ? 'bg-indigo-600 text-white'
-                : 'bg-slate-800 text-slate-400 hover:bg-slate-700'
+              !filterTicker ? 'bg-indigo-600 text-white' : 'bg-slate-800 text-slate-400 hover:bg-slate-700'
             }`}
           >
             전체
@@ -89,9 +141,7 @@ export function TradeHistory() {
               key={t}
               onClick={() => setFilterTicker(t === filterTicker ? '' : t)}
               className={`text-xs px-2.5 py-1 rounded-full transition-colors font-mono ${
-                filterTicker === t
-                  ? 'bg-indigo-600 text-white'
-                  : 'bg-slate-800 text-slate-400 hover:bg-slate-700'
+                filterTicker === t ? 'bg-indigo-600 text-white' : 'bg-slate-800 text-slate-400 hover:bg-slate-700'
               }`}
             >
               {t}
@@ -108,23 +158,15 @@ export function TradeHistory() {
       ) : (
         <div className="space-y-2">
           {filtered.map((trade) => {
-            const isBuy = trade.type === 'buy'
+            const typeMeta = TYPE_META[trade.type]
             const total = trade.quantity * trade.price
 
             return (
               <div key={trade.id} className="card p-4">
                 <div className="flex items-start justify-between gap-4">
-                  {/* Left: trade info */}
                   <div className="flex items-start gap-3 min-w-0">
-                    {/* Type badge */}
-                    <span
-                      className={`mt-0.5 flex-shrink-0 text-xs font-bold px-2 py-1 rounded ${
-                        isBuy
-                          ? 'bg-emerald-900/60 text-emerald-300'
-                          : 'bg-red-900/60 text-red-300'
-                      }`}
-                    >
-                      {isBuy ? '매수' : '매도'}
+                    <span className={`mt-0.5 flex-shrink-0 text-xs font-bold px-2 py-1 rounded ${typeMeta.cls}`}>
+                      {typeMeta.label}
                     </span>
 
                     <div className="min-w-0">
@@ -137,11 +179,17 @@ export function TradeHistory() {
                       </div>
 
                       <div className="flex items-center gap-3 mt-1 text-xs text-slate-400 font-mono flex-wrap">
-                        <span>{formatPrice(trade.price, trade.market)} × {trade.quantity.toLocaleString()}</span>
-                        <span className="text-slate-500">→</span>
-                        <span className="text-slate-300">
-                          {formatPrice(total, trade.market)}
-                        </span>
+                        {trade.type === 'split' ? (
+                          <span>분할 비율 {trade.quantity}:1</span>
+                        ) : trade.type === 'dividend' ? (
+                          <span>배당금 {formatPrice(trade.price, trade.market)}</span>
+                        ) : (
+                          <>
+                            <span>{formatPrice(trade.price, trade.market)} × {trade.quantity.toLocaleString()}</span>
+                            <span className="text-slate-500">→</span>
+                            <span className="text-slate-300">{formatPrice(total, trade.market)}</span>
+                          </>
+                        )}
                       </div>
 
                       <p className="text-xs text-slate-600 mt-1">
@@ -150,7 +198,6 @@ export function TradeHistory() {
                     </div>
                   </div>
 
-                  {/* Right: actions */}
                   <div className="flex items-center gap-1 flex-shrink-0">
                     <button
                       onClick={() => startEditNote(trade)}
@@ -169,7 +216,6 @@ export function TradeHistory() {
                   </div>
                 </div>
 
-                {/* Note section */}
                 {editingNote === trade.id ? (
                   <div className="mt-3 border-t border-slate-800 pt-3">
                     <textarea
@@ -181,28 +227,17 @@ export function TradeHistory() {
                       autoFocus
                     />
                     <div className="flex gap-2 mt-2">
-                      <button
-                        onClick={() => saveNote(trade.id)}
-                        className="text-xs bg-indigo-600 hover:bg-indigo-500 text-white px-3 py-1 rounded transition-colors"
-                      >
+                      <button onClick={() => saveNote(trade.id)} className="text-xs bg-indigo-600 hover:bg-indigo-500 text-white px-3 py-1 rounded transition-colors">
                         저장
                       </button>
-                      <button
-                        onClick={() => setEditingNote(null)}
-                        className="text-xs text-slate-400 hover:text-slate-200 px-3 py-1 rounded transition-colors"
-                      >
+                      <button onClick={() => setEditingNote(null)} className="text-xs text-slate-400 hover:text-slate-200 px-3 py-1 rounded transition-colors">
                         취소
                       </button>
                     </div>
                   </div>
                 ) : trade.note ? (
-                  <div
-                    className="mt-3 border-t border-slate-800 pt-3 cursor-pointer"
-                    onClick={() => startEditNote(trade)}
-                  >
-                    <p className="text-xs text-slate-500 leading-relaxed whitespace-pre-wrap">
-                      {trade.note}
-                    </p>
+                  <div className="mt-3 border-t border-slate-800 pt-3 cursor-pointer" onClick={() => startEditNote(trade)}>
+                    <p className="text-xs text-slate-500 leading-relaxed whitespace-pre-wrap">{trade.note}</p>
                   </div>
                 ) : null}
               </div>

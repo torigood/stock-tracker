@@ -27,7 +27,8 @@ export interface RealizedRecord {
   ticker: string
   market: Market
   baseCurrency: 'KRW' | 'USD'
-  realizedPL: number  // in native currency
+  realizedPL: number  // in native currency (includes dividends)
+  dividendTotal: number
 }
 
 export function computeRealizedPL(trades: Trade[]): RealizedRecord[] {
@@ -49,13 +50,14 @@ export function computeRealizedPL(trades: Trade[]): RealizedRecord[] {
     const baseCurrency = getBaseCurrency(meta.market, ticker)
     const lots: Lot[] = []
     let realizedPL = 0
-    let hasSells = false
+    let dividendTotal = 0
+    let hasActivity = false
 
     for (const trade of sorted) {
       if (trade.type === 'buy') {
         lots.push({ price: trade.price, quantity: trade.quantity, date: trade.date })
-      } else {
-        hasSells = true
+      } else if (trade.type === 'sell') {
+        hasActivity = true
         let remaining = trade.quantity
         while (remaining > 0 && lots.length > 0) {
           const lot = lots[0]
@@ -68,11 +70,25 @@ export function computeRealizedPL(trades: Trade[]): RealizedRecord[] {
             lot.quantity -= consumed
           }
         }
+      } else if (trade.type === 'dividend') {
+        // Dividend amount stored in price field
+        dividendTotal += trade.price
+        realizedPL += trade.price
+        hasActivity = true
+      } else if (trade.type === 'split') {
+        // Apply split ratio to all existing lots
+        const ratio = trade.quantity
+        if (ratio > 0) {
+          for (const lot of lots) {
+            lot.quantity *= ratio
+            lot.price /= ratio
+          }
+        }
       }
     }
 
-    if (hasSells) {
-      records.push({ ticker, market: meta.market, baseCurrency, realizedPL })
+    if (hasActivity) {
+      records.push({ ticker, market: meta.market, baseCurrency, realizedPL, dividendTotal })
     }
   }
 
@@ -88,7 +104,11 @@ export function computePortfolioHistory(
 ): { date: string; invested: number }[] {
   if (trades.length === 0) return []
 
-  const sorted = [...trades].sort(
+  // Only count buy/sell for investment history (skip dividend and split)
+  const investmentTrades = trades.filter((t) => t.type === 'buy' || t.type === 'sell')
+  if (investmentTrades.length === 0) return []
+
+  const sorted = [...investmentTrades].sort(
     (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()
   )
 
@@ -116,6 +136,7 @@ export function computePortfolioHistory(
 
 /**
  * Calculate positions from trades using FIFO method.
+ * Handles buy/sell/split/dividend trades.
  * Returns only positions with remaining quantity > 0.
  */
 export function computePositions(trades: Trade[], fallbackExchangeRate = 1380): Position[] {
@@ -139,6 +160,7 @@ export function computePositions(trades: Trade[], fallbackExchangeRate = 1380): 
 
     const meta = sorted[sorted.length - 1] // latest trade for name/market
     const lots: Lot[] = []
+    let dividendTotal = 0
 
     for (const trade of sorted) {
       if (trade.type === 'buy') {
@@ -148,7 +170,7 @@ export function computePositions(trades: Trade[], fallbackExchangeRate = 1380): 
           date: trade.date,
           exchangeRate: trade.exchangeRateAtPurchase,
         })
-      } else {
+      } else if (trade.type === 'sell') {
         // FIFO sell
         let remaining = trade.quantity
         while (remaining > 0 && lots.length > 0) {
@@ -161,6 +183,17 @@ export function computePositions(trades: Trade[], fallbackExchangeRate = 1380): 
             remaining = 0
           }
         }
+      } else if (trade.type === 'split') {
+        // Apply split ratio to all existing lots
+        const ratio = trade.quantity
+        if (ratio > 0) {
+          for (const lot of lots) {
+            lot.quantity *= ratio
+            lot.price /= ratio
+          }
+        }
+      } else if (trade.type === 'dividend') {
+        dividendTotal += trade.price
       }
     }
 
@@ -195,6 +228,7 @@ export function computePositions(trades: Trade[], fallbackExchangeRate = 1380): 
       profitLossKRW: 0,
       profitLossPercentKRW: 0,
       dayChange: 0,
+      dividendTotal,
       trades: tickerTrades,
     })
   }
@@ -257,9 +291,7 @@ export function computeSummary(
   for (const p of positions) {
     if (displayCurrency === 'KRW') {
       if (p.baseCurrency === 'USD') {
-        // Use purchase-rate-based KRW cost for invested
         totalInvested += p.totalCostKRW
-        // Use current-rate-based KRW value for evaluation
         totalValue += p.totalValueKRW > 0 ? p.totalValueKRW : p.totalCostKRW
       } else {
         totalInvested += p.totalCost
@@ -297,7 +329,6 @@ export function computeSummary(
 export function formatPrice(price: number, market: Market): string {
   if (price === 0) return '–'
   if (market === 'KRX' || (market === 'ETF' && price > 1000)) {
-    // Assume KRW for high-value numbers
     return '₩' + Math.round(price).toLocaleString('ko-KR')
   }
   return (

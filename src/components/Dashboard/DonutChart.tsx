@@ -1,6 +1,7 @@
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts'
 import type { Position } from '../../types'
+import { usePortfolioStore } from '../../store/portfolioStore'
 
 interface Props {
   positions: Position[]
@@ -12,8 +13,17 @@ const COLORS = [
   '#3b82f6', '#60a5fa', '#93c5fd', '#bfdbfe',
 ]
 
+const MARKET_SECTOR: Record<string, string> = {
+  KRX: '국내주식',
+  US: '미국주식',
+  ETF: 'ETF',
+}
+
 export function DonutChart({ positions }: Props) {
-  const data = useMemo(() => {
+  const sectors = usePortfolioStore((s) => s.sectors)
+  const [viewMode, setViewMode] = useState<'ticker' | 'sector'>('ticker')
+
+  const tickerData = useMemo(() => {
     if (positions.length === 0) return []
     const values = positions.map((p) => ({
       name: p.name,
@@ -27,6 +37,23 @@ export function DonutChart({ positions }: Props) {
       .sort((a, b) => b.value - a.value)
   }, [positions])
 
+  const sectorData = useMemo(() => {
+    if (positions.length === 0) return []
+    const byGroup = new Map<string, number>()
+    for (const pos of positions) {
+      const group = sectors[pos.ticker] || MARKET_SECTOR[pos.market] || '기타'
+      const val = pos.totalValue > 0 ? pos.totalValue : pos.totalCost
+      byGroup.set(group, (byGroup.get(group) ?? 0) + val)
+    }
+    const total = [...byGroup.values()].reduce((s, v) => s + v, 0)
+    return [...byGroup.entries()]
+      .filter(([, v]) => v > 0)
+      .map(([name, value]) => ({ name, ticker: name, value, percent: (value / total) * 100 }))
+      .sort((a, b) => b.value - a.value)
+  }, [positions, sectors])
+
+  const data = viewMode === 'ticker' ? tickerData : sectorData
+
   if (data.length === 0) {
     return (
       <div className="card p-5 flex items-center justify-center h-64">
@@ -35,13 +62,13 @@ export function DonutChart({ positions }: Props) {
     )
   }
 
-  const CustomTooltip = ({ active, payload }: any) => {
+  const CustomTooltip = ({ active, payload }: { active?: boolean; payload?: Array<{ payload: { name: string; ticker: string; percent: number } }> }) => {
     if (active && payload && payload.length) {
       const d = payload[0].payload
       return (
         <div className="bg-surface-800 border border-slate-700 rounded-lg px-3 py-2 text-xs shadow-xl">
           <p className="text-slate-200 font-medium">{d.name}</p>
-          <p className="text-slate-400 font-mono">{d.ticker}</p>
+          {viewMode === 'ticker' && <p className="text-slate-400 font-mono">{d.ticker}</p>}
           <p className="text-indigo-300 font-mono mt-1">{d.percent.toFixed(1)}%</p>
         </div>
       )
@@ -51,7 +78,15 @@ export function DonutChart({ positions }: Props) {
 
   return (
     <div className="card p-5">
-      <h2 className="text-base font-semibold text-slate-100 mb-4">포트폴리오 비중</h2>
+      <div className="flex items-center justify-between mb-4">
+        <h2 className="text-base font-semibold text-slate-100">포트폴리오 비중</h2>
+        <button
+          onClick={() => setViewMode((v) => v === 'ticker' ? 'sector' : 'ticker')}
+          className="text-xs px-2.5 py-1 rounded-lg bg-slate-700 hover:bg-slate-600 text-slate-300 transition-colors"
+        >
+          {viewMode === 'ticker' ? '섹터별' : '종목별'}
+        </button>
+      </div>
       <div className="flex flex-col md:flex-row items-center gap-6">
         <div style={{ width: 200, height: 200, flexShrink: 0 }}>
           <ResponsiveContainer width="100%" height="100%">
@@ -82,7 +117,7 @@ export function DonutChart({ positions }: Props) {
                 className="w-2.5 h-2.5 rounded-sm flex-shrink-0"
                 style={{ backgroundColor: COLORS[i % COLORS.length] }}
               />
-              <span className="text-slate-400">{d.ticker}</span>
+              <span className="text-slate-400">{viewMode === 'ticker' ? d.ticker : d.name}</span>
               <span className="text-slate-500 font-mono">{d.percent.toFixed(1)}%</span>
             </div>
           ))}

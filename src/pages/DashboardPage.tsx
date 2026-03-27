@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import { usePortfolio } from '../hooks/usePortfolio'
 import { useStockPrice } from '../hooks/useStockPrice'
+import { usePortfolioStore } from '../store/portfolioStore'
 import { SummaryCards } from '../components/Dashboard/SummaryCards'
 import { PositionTable } from '../components/Dashboard/PositionTable'
 import { DonutChart } from '../components/Dashboard/DonutChart'
@@ -10,6 +11,7 @@ import type { Position } from '../types'
 
 export function DashboardPage() {
   const [selectedPosition, setSelectedPosition] = useState<Position | null>(null)
+  const manualPrices = usePortfolioStore((s) => s.manualPrices)
   const rawPortfolio = usePortfolio()
 
   const priceItems = useMemo(
@@ -17,10 +19,21 @@ export function DashboardPage() {
     [rawPortfolio.positions]
   )
 
-  const { prices, loading, refresh } = useStockPrice(priceItems)
+  const { prices: fetchedPrices, loading, refresh } = useStockPrice(priceItems)
+
+  // Merge manual prices for tickers where API returned 0 or nothing
+  const prices = useMemo(() => {
+    const merged = new Map(fetchedPrices)
+    for (const [ticker, price] of Object.entries(manualPrices)) {
+      if (!merged.get(ticker)) {
+        merged.set(ticker, price)
+      }
+    }
+    return merged
+  }, [fetchedPrices, manualPrices])
+
   const { positions, summary } = usePortfolio(prices)
 
-  // Keep selected position in sync with latest prices
   const liveSelected = selectedPosition
     ? (positions.find((p) => p.ticker === selectedPosition.ticker) ?? null)
     : null

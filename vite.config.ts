@@ -1,8 +1,30 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
+import { VitePWA } from 'vite-plugin-pwa'
 
 export default defineConfig({
-  plugins: [react()],
+  plugins: [
+    react(),
+    VitePWA({
+      registerType: 'autoUpdate',
+      manifest: {
+        name: 'StockTracker',
+        short_name: 'StockTracker',
+        description: '개인 주식 포트폴리오 트래커',
+        theme_color: '#0f172a',
+        background_color: '#0f172a',
+        display: 'standalone',
+        start_url: '/',
+        icons: [
+          {
+            src: 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 192 192"><rect width="192" height="192" fill="%230f172a" rx="24"/><polyline points="24,140 72,80 108,110 160,48" fill="none" stroke="%236366f1" stroke-width="16" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+            sizes: '192x192',
+            type: 'image/svg+xml',
+          },
+        ],
+      },
+    }),
+  ],
   server: {
     proxy: {
       '/api/yahoo': {

@@ -5,6 +5,7 @@ import { SummaryCards } from '../components/Dashboard/SummaryCards'
 import { PositionTable } from '../components/Dashboard/PositionTable'
 import { DonutChart } from '../components/Dashboard/DonutChart'
 import { PositionDetail } from '../components/Dashboard/PositionDetail'
+import { PortfolioChart } from '../components/Dashboard/PortfolioChart'
 import type { Position } from '../types'
 
 export function DashboardPage() {
@@ -27,6 +28,7 @@ export function DashboardPage() {
   return (
     <div className="space-y-5">
       <SummaryCards summary={summary} />
+      <PortfolioChart />
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
         <div className="lg:col-span-2">
           <PositionTable

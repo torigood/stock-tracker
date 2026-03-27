@@ -30,17 +30,19 @@ async function yahooFetch(symbol: string, period1?: number, period2?: number): P
 
 export function TradeForm({ onClose }: Props) {
   const addTrade = usePortfolioStore((s) => s.addTrade)
+  const storeExchangeRate = usePortfolioStore((s) => s.exchangeRate)
 
   const [tab, setTab] = useState<TradeType>('buy')
   const [ticker, setTicker] = useState('')
   const [name, setName] = useState('')
   const [market, setMarket] = useState<Market>('US')
   const [quantity, setQuantity] = useState('')
-  const [price, setPrice] = useState('')         // always in priceUnit
-  const [totalAmount, setTotalAmount] = useState('') // always in priceUnit
+  const [price, setPrice] = useState('')
+  const [totalAmount, setTotalAmount] = useState('')
   const [lastEdited, setLastEdited] = useState<'qty' | 'amount'>('qty')
   const [priceUnit, setPriceUnit] = useState<'usd' | 'krw'>('usd')
-  const [exchangeRate, setExchangeRate] = useState(1380)
+  const [exchangeRate, setExchangeRate] = useState(storeExchangeRate)
+  const [purchaseRate, setPurchaseRate] = useState(String(storeExchangeRate)) // 매수 당시 환율
   const [date, setDate] = useState(dayjs().format('YYYY-MM-DD'))
   const [note, setNote] = useState('')
   const [suggestions, setSuggestions] = useState<TickerEntry[]>([])
@@ -51,12 +53,11 @@ export function TradeForm({ onClose }: Props) {
 
   const sugRef = useRef<HTMLDivElement>(null)
 
-  // Fetch exchange rate once on mount
+  // Sync from store when it updates (e.g. after App fetches real rate)
   useEffect(() => {
-    yahooFetch('USDKRW=X').then((rate) => {
-      if (rate) setExchangeRate(Math.round(rate))
-    }).catch(() => {})
-  }, [])
+    setExchangeRate(storeExchangeRate)
+    setPurchaseRate(String(storeExchangeRate))
+  }, [storeExchangeRate])
 
   // Reset priceUnit when market changes
   useEffect(() => {
@@ -168,6 +169,9 @@ export function TradeForm({ onClose }: Props) {
     const nativePrice = getNativePrice()
     if (!ticker || !name || !finalQty || !nativePrice || !date) return
 
+    const isUsdTrade = market === 'US' || (market === 'ETF' && !/^\d+$/.test(ticker))
+    const rateAtPurchase = isUsdTrade ? parseFloat(purchaseRate) || storeExchangeRate : undefined
+
     addTrade({
       ticker,
       name,
@@ -177,6 +181,7 @@ export function TradeForm({ onClose }: Props) {
       price: nativePrice,
       date,
       note,
+      exchangeRateAtPurchase: rateAtPurchase,
     })
 
     setTicker('')
@@ -188,6 +193,7 @@ export function TradeForm({ onClose }: Props) {
     setDate(dayjs().format('YYYY-MM-DD'))
     setPriceError('')
     setLastEdited('qty')
+    setPurchaseRate(String(storeExchangeRate))
     setSubmitted(true)
     setTimeout(() => {
       setSubmitted(false)
@@ -412,6 +418,23 @@ export function TradeForm({ onClose }: Props) {
           <div className="bg-surface-950 rounded-lg px-4 py-2.5 flex items-center justify-between text-sm">
             <span className="text-slate-500">거래 금액</span>
             <span className="font-mono text-slate-200 font-medium">{totalPreview}</span>
+          </div>
+        )}
+
+        {/* Purchase exchange rate — USD trades only */}
+        {(market === 'US' || (market === 'ETF' && !/^\d+$/.test(ticker))) && (
+          <div>
+            <label className="label">매수 당시 환율 (USD→KRW)</label>
+            <input
+              type="number"
+              value={purchaseRate}
+              onChange={(e) => setPurchaseRate(e.target.value)}
+              placeholder="1380"
+              min="1"
+              step="1"
+              className="input-field font-mono"
+            />
+            <p className="text-xs text-slate-500 mt-1">원화 기준 수익률 계산에 사용됩니다</p>
           </div>
         )}
 

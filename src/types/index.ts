@@ -9,29 +9,37 @@ export interface Trade {
   type: TradeType
   quantity: number
   price: number
-  date: string       // 'YYYY-MM-DD'
+  date: string                    // 'YYYY-MM-DD'
   note: string
-  createdAt: string  // ISO string
+  createdAt: string               // ISO string
+  exchangeRateAtPurchase?: number // USD/KRW rate at trade time (US stocks only)
 }
 
 export interface Lot {
   price: number
   quantity: number
   date: string
+  exchangeRate?: number  // rate at purchase time (for KRW P&L calc)
 }
 
 export interface Position {
   ticker: string
   name: string
   market: Market
-  quantity: number       // remaining shares
-  avgPrice: number       // weighted avg of remaining lots
-  totalCost: number      // avgPrice * quantity
-  currentPrice: number   // fetched from API (0 if unavailable)
-  totalValue: number     // currentPrice * quantity
-  profitLoss: number     // totalValue - totalCost
+  baseCurrency: 'KRW' | 'USD'
+  quantity: number
+  avgPrice: number       // weighted avg in native currency (USD for US stocks)
+  avgPriceKRW: number    // weighted avg in KRW (uses purchase exchange rates)
+  totalCost: number      // in native currency
+  totalCostKRW: number   // in KRW (using purchase exchange rates)
+  currentPrice: number   // in native currency (0 if unavailable)
+  totalValue: number     // currentPrice × qty (native)
+  totalValueKRW: number  // currentPrice × qty × currentExchangeRate
+  profitLoss: number     // native-currency P&L
   profitLossPercent: number
-  dayChange: number      // placeholder, set by price hook
+  profitLossKRW: number        // KRW-based P&L (accounts for FX change)
+  profitLossPercentKRW: number // KRW-based return %
+  dayChange: number
   trades: Trade[]
 }
 
@@ -40,6 +48,7 @@ export interface PortfolioSummary {
   totalValue: number
   totalProfitLoss: number
   totalProfitLossPercent: number
+  totalRealizedPL: number
   positions: Position[]
 }
 

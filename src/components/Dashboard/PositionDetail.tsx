@@ -1,7 +1,9 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import dayjs from 'dayjs'
 import type { Position } from '../../types'
-import { formatPrice, formatCurrency, formatPercent } from '../../utils/calculations'
+import { formatPercent, computeRealizedPL } from '../../utils/calculations'
+import { useCurrency } from '../../hooks/useCurrency'
+import { usePortfolioStore } from '../../store/portfolioStore'
 
 interface Props {
   position: Position | null
@@ -9,6 +11,11 @@ interface Props {
 }
 
 export function PositionDetail({ position, onClose }: Props) {
+  const { fmtPrice, fmt } = useCurrency()
+  const targetPrices = usePortfolioStore((s) => s.targetPrices)
+  const setTargetPrice = usePortfolioStore((s) => s.setTargetPrice)
+  const [targetInput, setTargetInput] = useState('')
+
   // ESC 키로 닫기
   useEffect(() => {
     function handler(e: KeyboardEvent) {
@@ -25,6 +32,14 @@ export function PositionDetail({ position, onClose }: Props) {
     return () => { document.body.style.overflow = '' }
   }, [position])
 
+  // Sync targetInput when position changes
+  useEffect(() => {
+    if (position) {
+      const existing = targetPrices[position.ticker]
+      setTargetInput(existing != null ? String(existing) : '')
+    }
+  }, [position, targetPrices])
+
   if (!position) return null
 
   const trades = [...position.trades].sort(
@@ -40,6 +55,31 @@ export function PositionDetail({ position, onClose }: Props) {
     US: 'bg-indigo-900/50 text-indigo-300',
     ETF: 'bg-amber-900/50 text-amber-300',
   }[position.market]
+
+  // Realized P&L for this ticker
+  const realizedRecords = computeRealizedPL(position.trades)
+  const realizedRecord = realizedRecords.find((r) => r.ticker === position.ticker)
+  const hasRealized = realizedRecord != null
+
+  // Target price info
+  const targetPrice = targetPrices[position.ticker]
+  const hasTarget = targetPrice != null && targetPrice > 0
+  const targetPct = hasTarget && position.currentPrice > 0
+    ? (position.currentPrice / targetPrice) * 100
+    : null
+  const targetReached = targetPct != null && targetPct >= 100
+
+  function handleSetTarget() {
+    const val = parseFloat(targetInput)
+    if (!isNaN(val) && val > 0) {
+      setTargetPrice(position!.ticker, val)
+    }
+  }
+
+  function handleDeleteTarget() {
+    setTargetPrice(position!.ticker, null)
+    setTargetInput('')
+  }
 
   return (
     <>
@@ -74,21 +114,76 @@ export function PositionDetail({ position, onClose }: Props) {
         {/* Summary stats */}
         <div className="grid grid-cols-2 gap-px bg-slate-800 border-b border-slate-800 flex-shrink-0">
           <Stat label="보유수량" value={`${position.quantity.toLocaleString()}주`} />
-          <Stat label="평균단가" value={formatPrice(position.avgPrice, position.market)} />
-          <Stat label="현재가" value={position.currentPrice ? formatPrice(position.currentPrice, position.market) : '–'} />
+          <Stat label="평균단가" value={fmtPrice(position.avgPrice, position.market, position.ticker)} />
+          <Stat label="현재가" value={position.currentPrice ? fmtPrice(position.currentPrice, position.market, position.ticker) : '–'} />
           <Stat
             label="수익률"
             value={position.currentPrice ? formatPercent(position.profitLossPercent) : '–'}
             valueClass={plColor}
           />
-          <Stat label="총 투자금" value={formatCurrency(position.totalCost, position.market)} />
+          <Stat label="총 투자금" value={fmt(position.totalCost, position.market, position.ticker)} />
           <Stat
             label="평가손익"
             value={position.currentPrice
-              ? (position.profitLoss >= 0 ? '+' : '') + formatCurrency(position.profitLoss, position.market)
+              ? (position.profitLoss >= 0 ? '+' : '') + fmt(position.profitLoss, position.market, position.ticker)
               : '–'}
             valueClass={plColor}
           />
+          {hasRealized && realizedRecord && (
+            <Stat
+              label="실현 손익"
+              value={(realizedRecord.realizedPL >= 0 ? '+' : '') + fmt(realizedRecord.realizedPL, position.market, position.ticker)}
+              valueClass={realizedRecord.realizedPL >= 0 ? 'text-emerald-400' : 'text-red-400'}
+            />
+          )}
+        </div>
+
+        {/* Target price section */}
+        <div className="px-5 py-4 border-b border-slate-800 flex-shrink-0">
+          <p className="text-xs font-medium text-slate-500 uppercase tracking-wider mb-3">목표가 설정</p>
+
+          {hasTarget && targetPct != null && (
+            <div className="mb-3">
+              <div className="flex items-center justify-between text-xs text-slate-400 mb-1">
+                <span>현재 목표가: {fmtPrice(targetPrice, position.market, position.ticker)}</span>
+                <span className={targetReached ? 'text-emerald-400 font-medium' : 'text-indigo-400'}>
+                  {Math.min(targetPct, 100).toFixed(1)}% {targetReached ? '✓ 도달' : ''}
+                </span>
+              </div>
+              <div className="h-2 bg-slate-700 rounded-full overflow-hidden">
+                <div
+                  className={`h-full rounded-full transition-all ${
+                    targetReached ? 'bg-emerald-500' : 'bg-indigo-500'
+                  }`}
+                  style={{ width: `${Math.min(targetPct, 100)}%` }}
+                />
+              </div>
+            </div>
+          )}
+
+          <div className="flex items-center gap-2">
+            <input
+              type="number"
+              value={targetInput}
+              onChange={(e) => setTargetInput(e.target.value)}
+              placeholder={`목표가 (${position.baseCurrency === 'KRW' ? '₩' : '$'})`}
+              className="flex-1 bg-surface-800 border border-slate-700 rounded-lg px-3 py-1.5 text-sm text-slate-200 placeholder-slate-600 focus:outline-none focus:border-indigo-500"
+            />
+            <button
+              onClick={handleSetTarget}
+              className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-medium rounded-lg transition-colors"
+            >
+              설정
+            </button>
+            {hasTarget && (
+              <button
+                onClick={handleDeleteTarget}
+                className="px-3 py-1.5 bg-slate-700 hover:bg-slate-600 text-slate-300 text-xs font-medium rounded-lg transition-colors"
+              >
+                삭제
+              </button>
+            )}
+          </div>
         </div>
 
         {/* Trade list */}
@@ -125,11 +220,11 @@ export function PositionDetail({ position, onClose }: Props) {
                       </div>
                       <div>
                         <p className="text-slate-600 mb-0.5">단가</p>
-                        <p className="text-slate-300">{formatPrice(trade.price, trade.market)}</p>
+                        <p className="text-slate-300">{fmtPrice(trade.price, trade.market, trade.ticker)}</p>
                       </div>
                       <div>
                         <p className="text-slate-600 mb-0.5">합계</p>
-                        <p className="text-slate-300">{formatPrice(total, trade.market)}</p>
+                        <p className="text-slate-300">{fmt(total, trade.market, trade.ticker)}</p>
                       </div>
                     </div>
 

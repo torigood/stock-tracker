@@ -50,14 +50,38 @@ export function TradeForm({ onClose }: Props) {
   const [submitted, setSubmitted] = useState(false)
   const [fetchingPrice, setFetchingPrice] = useState(false)
   const [priceError, setPriceError] = useState('')
+  const [fetchingRate, setFetchingRate] = useState(false)
 
   const sugRef = useRef<HTMLDivElement>(null)
 
   // Sync from store when it updates (e.g. after App fetches real rate)
   useEffect(() => {
     setExchangeRate(storeExchangeRate)
-    setPurchaseRate(String(storeExchangeRate))
   }, [storeExchangeRate])
+
+  // Fetch historical USD/KRW rate when date changes (USD trades only)
+  useEffect(() => {
+    const isUsd = market === 'US' || (market === 'ETF' && !/^\d+$/.test(ticker || 'X'))
+    if (!isUsd) return
+
+    const isToday = date === dayjs().format('YYYY-MM-DD')
+    if (isToday) {
+      setPurchaseRate(String(storeExchangeRate))
+      return
+    }
+
+    setFetchingRate(true)
+    fetch(`https://cdn.jsdelivr.net/npm/@fawazahmed0/currency-api@${date}/v1/currencies/usd.min.json`)
+      .then((r) => r.json())
+      .then((data: unknown) => {
+        const krw = data && typeof data === 'object' && 'usd' in data
+          ? (data as { usd: Record<string, number> }).usd?.krw
+          : null
+        if (krw && krw > 100) setPurchaseRate(String(Math.round(krw)))
+      })
+      .catch(() => {/* keep previous value */})
+      .finally(() => setFetchingRate(false))
+  }, [date, market, ticker, storeExchangeRate])
 
   // Reset priceUnit when market changes
   useEffect(() => {
@@ -424,7 +448,10 @@ export function TradeForm({ onClose }: Props) {
         {/* Purchase exchange rate — USD trades only */}
         {(market === 'US' || (market === 'ETF' && !/^\d+$/.test(ticker))) && (
           <div>
-            <label className="label">매수 당시 환율 (USD→KRW)</label>
+            <div className="flex items-center justify-between mb-1">
+              <label className="label !mb-0">매수 당시 환율 (USD→KRW)</label>
+              {fetchingRate && <span className="text-[11px] text-slate-500">조회 중...</span>}
+            </div>
             <input
               type="number"
               value={purchaseRate}

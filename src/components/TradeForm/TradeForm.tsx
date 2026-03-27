@@ -22,6 +22,7 @@ export function TradeForm({ onClose }: Props) {
   const [suggestions, setSuggestions] = useState<TickerEntry[]>([])
   const [showSuggestions, setShowSuggestions] = useState(false)
   const [submitted, setSubmitted] = useState(false)
+  const [fetchingPrice, setFetchingPrice] = useState(false)
 
   const sugRef = useRef<HTMLDivElement>(null)
 
@@ -48,6 +49,24 @@ export function TradeForm({ onClose }: Props) {
     setName(entry.name)
     setMarket(entry.market)
     setShowSuggestions(false)
+  }
+
+  async function fetchCurrentPrice() {
+    if (!ticker) return
+    setFetchingPrice(true)
+    try {
+      const symbol = market === 'KRX' || (market === 'ETF' && /^\d+$/.test(ticker))
+        ? `${ticker}.KS`
+        : ticker
+      const res = await fetch(`/api/yahoo?symbol=${encodeURIComponent(symbol)}`)
+      const json = await res.json()
+      const p = json?.chart?.result?.[0]?.meta?.regularMarketPrice
+      if (typeof p === 'number') setPrice(String(p))
+    } catch {
+      // 조회 실패 시 무시
+    } finally {
+      setFetchingPrice(false)
+    }
   }
 
   function handleSubmit(e: React.FormEvent) {
@@ -196,7 +215,17 @@ export function TradeForm({ onClose }: Props) {
             />
           </div>
           <div>
-            <label className="label">단가</label>
+            <div className="flex items-center justify-between mb-1">
+              <label className="label !mb-0">단가</label>
+              <button
+                type="button"
+                onClick={fetchCurrentPrice}
+                disabled={!ticker || fetchingPrice}
+                className="text-[11px] text-indigo-400 hover:text-indigo-300 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+              >
+                {fetchingPrice ? '조회 중...' : '현재가 불러오기'}
+              </button>
+            </div>
             <input
               type="number"
               value={price}

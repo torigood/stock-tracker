@@ -1,0 +1,17 @@
+{
+  "name": "StockTracker",
+  "short_name": "StockTracker",
+  "description": "개인 주식 포트폴리오 트래커",
+  "theme_color": "#0f172a",
+  "background_color": "#0f172a",
+  "display": "standalone",
+  "start_url": "/",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

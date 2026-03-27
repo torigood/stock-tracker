@@ -12,6 +12,15 @@ export default function App() {
   const [page, setPage] = useState<Page>('dashboard')
   const [showDataManager, setShowDataManager] = useState(false)
   const setExchangeRate = usePortfolioStore((s) => s.setExchangeRate)
+  const theme = usePortfolioStore((s) => s.theme)
+
+  useEffect(() => {
+    if (theme === 'light') {
+      document.documentElement.classList.add('light')
+    } else {
+      document.documentElement.classList.remove('light')
+    }
+  }, [theme])
 
   useEffect(() => {
     // exchangerate-api.com: free, no API key, CORS-friendly

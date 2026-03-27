@@ -2,50 +2,80 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ── Color-scheme variables ─────────────────────────────────────────────── */
+:root {
+  --s950: #060912;
+  --s900: #0d1117;
+  --s800: #161b22;
+  --s700: #21262d;
+}
+
+html.light {
+  --s950: #f8fafc;
+  --s900: #f1f5f9;
+  --s800: #ffffff;
+  --s700: #e2e8f0;
+  color: #0f172a;
+  background-color: #f8fafc;
+}
+
+/* Light mode — override slate grays used throughout the app */
+html.light .text-slate-100 { color: #0f172a; }
+html.light .text-slate-200 { color: #1e293b; }
+html.light .text-slate-300 { color: #334155; }
+html.light .text-slate-400 { color: #475569; }
+html.light .text-slate-500 { color: #64748b; }
+html.light .text-slate-600 { color: #94a3b8; }
+html.light .text-white     { color: #0f172a; }
+
+html.light .border-slate-800,
+html.light .border-slate-800\/60 { border-color: #e2e8f0; }
+html.light .border-slate-700     { border-color: #cbd5e1; }
+
+html.light .bg-slate-800  { background-color: #e2e8f0; }
+html.light .bg-slate-700  { background-color: #cbd5e1; }
+
+html.light .hover\:bg-slate-800:hover { background-color: #e2e8f0; }
+html.light .hover\:bg-slate-700:hover { background-color: #cbd5e1; }
+
+html.light nav { border-bottom-color: #e2e8f0 !important; }
+
+html.light .input-field {
+  border-color: #cbd5e1;
+  color: #0f172a;
+  background-color: var(--s900);
+}
+
+/* ── Base ────────────────────────────────────────────────────────────────── */
 @layer base {
   html {
-    background-color: #060912;
+    background-color: var(--s950);
     color: #e2e8f0;
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
     -webkit-font-smoothing: antialiased;
   }
 
-  body {
-    margin: 0;
-  }
+  body { margin: 0; }
 
-  #root {
-    min-height: 100vh;
-  }
+  #root { min-height: 100vh; }
 
-  * {
-    box-sizing: border-box;
-  }
+  * { box-sizing: border-box; }
 
-  /* Scrollbar styling */
-  ::-webkit-scrollbar {
-    width: 6px;
-    height: 6px;
-  }
-  ::-webkit-scrollbar-track {
-    background: #0d1117;
-  }
-  ::-webkit-scrollbar-thumb {
-    background: #30363d;
-    border-radius: 3px;
-  }
-  ::-webkit-scrollbar-thumb:hover {
-    background: #484f58;
-  }
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: var(--s900); }
+  ::-webkit-scrollbar-thumb { background: #30363d; border-radius: 3px; }
+  ::-webkit-scrollbar-thumb:hover { background: #484f58; }
 }
 
+/* ── Components ──────────────────────────────────────────────────────────── */
 @layer components {
-  .profit { @apply text-emerald-400; }
-  .loss { @apply text-red-400; }
+  .profit  { @apply text-emerald-400; }
+  .loss    { @apply text-red-400; }
   .neutral { @apply text-slate-400; }
 
   .card {
-    @apply bg-surface-800 border border-slate-800 rounded-xl;
+    background-color: var(--s800);
+    @apply border border-slate-800 rounded-xl;
   }
 
   .btn-primary {
@@ -57,7 +87,8 @@
   }
 
   .input-field {
-    @apply bg-surface-900 border border-slate-700 text-slate-100 rounded-lg px-3 py-2 w-full
+    background-color: var(--s900);
+    @apply border border-slate-700 text-slate-100 rounded-lg px-3 py-2 w-full
            focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent
            placeholder-slate-500 text-sm transition-colors duration-150;
   }

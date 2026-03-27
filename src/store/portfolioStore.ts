@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
-import type { Trade } from '../types'
+import type { Trade, Reminder, PinnedNote } from '../types'
 
 interface PortfolioMeta {
   id: string
@@ -28,6 +28,14 @@ interface PortfolioStore {
   exchangeRateOverride: number | null
   manualPrices: Record<string, number>
   sectors: Record<string, string>
+  theme: 'dark' | 'light'
+  compactNumbers: boolean
+  taxRate: number                          // e.g. 0.22 for 22%
+  weightAlerts: Record<string, number>     // ticker → max weight %
+
+  // Reminders & pinned notes
+  reminders: Reminder[]
+  pinnedNotes: PinnedNote[]
 
   // Portfolio management
   addPortfolio: (name: string) => void
@@ -48,6 +56,20 @@ interface PortfolioStore {
   setTargetPrice: (ticker: string, price: number | null) => void
   setManualPrice: (ticker: string, price: number | null) => void
   setSector: (ticker: string, sector: string) => void
+  setTheme: (t: 'dark' | 'light') => void
+  toggleCompactNumbers: () => void
+  setTaxRate: (r: number) => void
+  setWeightAlert: (ticker: string, pct: number | null) => void
+
+  // Reminders
+  addReminder: (r: Omit<Reminder, 'id' | 'dismissed'>) => void
+  dismissReminder: (id: string) => void
+  deleteReminder: (id: string) => void
+
+  // Pinned notes
+  addPinnedNote: (text: string, color: PinnedNote['color']) => void
+  updatePinnedNote: (id: string, text: string) => void
+  deletePinnedNote: (id: string) => void
 }
 
 const DEFAULT_ID = 'default'
@@ -65,6 +87,12 @@ export const usePortfolioStore = create<PortfolioStore>()(
       exchangeRateOverride: null,
       manualPrices: {},
       sectors: {},
+      theme: 'dark',
+      compactNumbers: false,
+      taxRate: 0.22,
+      weightAlerts: {},
+      reminders: [],
+      pinnedNotes: [],
 
       // ── Portfolio management ────────────────────────────────────────────────
 
@@ -180,19 +208,13 @@ export const usePortfolioStore = create<PortfolioStore>()(
       // ── Settings ────────────────────────────────────────────────────────────
 
       setDisplayCurrency: (c) => set({ displayCurrency: c }),
-
       setExchangeRate: (r) => set({ exchangeRate: r }),
-
       setExchangeRateOverride: (r) => set({ exchangeRateOverride: r }),
 
       setTargetPrice: (ticker, price) =>
         set((state) => {
           const next = { ...state.targetPrices }
-          if (price === null) {
-            delete next[ticker]
-          } else {
-            next[ticker] = price
-          }
+          if (price === null) { delete next[ticker] } else { next[ticker] = price }
           return {
             targetPrices: next,
             portfolioData: {
@@ -208,28 +230,70 @@ export const usePortfolioStore = create<PortfolioStore>()(
       setManualPrice: (ticker, price) =>
         set((state) => {
           const next = { ...state.manualPrices }
-          if (price === null) {
-            delete next[ticker]
-          } else {
-            next[ticker] = price
-          }
+          if (price === null) { delete next[ticker] } else { next[ticker] = price }
           return { manualPrices: next }
         }),
 
       setSector: (ticker, sector) =>
+        set((state) => ({ sectors: { ...state.sectors, [ticker]: sector } })),
+
+      setTheme: (t) => set({ theme: t }),
+
+      toggleCompactNumbers: () => set((state) => ({ compactNumbers: !state.compactNumbers })),
+
+      setTaxRate: (r) => set({ taxRate: r }),
+
+      setWeightAlert: (ticker, pct) =>
+        set((state) => {
+          const next = { ...state.weightAlerts }
+          if (pct === null) { delete next[ticker] } else { next[ticker] = pct }
+          return { weightAlerts: next }
+        }),
+
+      // ── Reminders ───────────────────────────────────────────────────────────
+
+      addReminder: (r) =>
         set((state) => ({
-          sectors: { ...state.sectors, [ticker]: sector },
+          reminders: [
+            ...state.reminders,
+            { ...r, id: crypto.randomUUID(), dismissed: false },
+          ],
         })),
+
+      dismissReminder: (id) =>
+        set((state) => ({
+          reminders: state.reminders.map((r) => (r.id === id ? { ...r, dismissed: true } : r)),
+        })),
+
+      deleteReminder: (id) =>
+        set((state) => ({ reminders: state.reminders.filter((r) => r.id !== id) })),
+
+      // ── Pinned notes ─────────────────────────────────────────────────────────
+
+      addPinnedNote: (text, color) =>
+        set((state) => ({
+          pinnedNotes: [
+            ...state.pinnedNotes,
+            { id: crypto.randomUUID(), text, color, createdAt: new Date().toISOString() },
+          ],
+        })),
+
+      updatePinnedNote: (id, text) =>
+        set((state) => ({
+          pinnedNotes: state.pinnedNotes.map((n) => (n.id === id ? { ...n, text } : n)),
+        })),
+
+      deletePinnedNote: (id) =>
+        set((state) => ({ pinnedNotes: state.pinnedNotes.filter((n) => n.id !== id) })),
     }),
     {
       name: 'stock-tracker-v1',
-      version: 2,
+      version: 3,
       migrate: (persistedState: unknown, version: number) => {
         const s = persistedState as Record<string, unknown>
         if (version < 2) {
           const id = DEFAULT_ID
-          return {
-            ...s,
+          Object.assign(s, {
             portfolios: [{ id, name: '기본 포트폴리오' }],
             activePortfolioId: id,
             portfolioData: {
@@ -241,7 +305,17 @@ export const usePortfolioStore = create<PortfolioStore>()(
             exchangeRateOverride: null,
             manualPrices: {},
             sectors: {},
-          }
+          })
+        }
+        if (version < 3) {
+          Object.assign(s, {
+            theme: 'dark',
+            compactNumbers: false,
+            taxRate: 0.22,
+            weightAlerts: {},
+            reminders: [],
+            pinnedNotes: [],
+          })
         }
         return s
       },

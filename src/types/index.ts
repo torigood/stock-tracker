@@ -63,3 +63,18 @@ export interface TickerEntry {
   name: string
   market: Market
 }
+
+export interface Reminder {
+  id: string
+  text: string
+  date: string       // YYYY-MM-DD — when to show
+  ticker?: string
+  dismissed: boolean
+}
+
+export interface PinnedNote {
+  id: string
+  text: string
+  color: 'yellow' | 'green' | 'blue' | 'purple'
+  createdAt: string
+}

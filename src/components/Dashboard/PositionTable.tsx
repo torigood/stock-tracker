@@ -19,6 +19,7 @@ export function PositionTable({ positions, loading, onRefresh, onSelect }: Props
   const targetPrices = usePortfolioStore((s) => s.targetPrices)
   const setManualPrice = usePortfolioStore((s) => s.setManualPrice)
   const manualPrices = usePortfolioStore((s) => s.manualPrices)
+  const weightAlerts = usePortfolioStore((s) => s.weightAlerts)
 
   const [sortKey, setSortKey] = useState<SortKey>('totalValue')
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc')
@@ -66,9 +67,19 @@ export function PositionTable({ positions, loading, onRefresh, onSelect }: Props
     setManualPriceInput('')
   }
 
+  const totalPortfolioValue = positions.reduce((s, p) => s + (p.totalValue > 0 ? p.totalValue : p.totalCost), 0)
+
   const targetReachedCount = positions.filter((pos) => {
     const tp = targetPrices[pos.ticker]
     return tp && tp > 0 && pos.currentPrice > 0 && pos.currentPrice >= tp
+  }).length
+
+  const weightAlertCount = positions.filter((pos) => {
+    const limit = weightAlerts[pos.ticker]
+    if (!limit || limit <= 0 || totalPortfolioValue === 0) return false
+    const value = pos.totalValue > 0 ? pos.totalValue : pos.totalCost
+    const weight = (value / totalPortfolioValue) * 100
+    return weight > limit
   }).length
 
   const sorted = sortedPositions()
@@ -82,6 +93,11 @@ export function PositionTable({ positions, loading, onRefresh, onSelect }: Props
           {targetReachedCount > 0 && (
             <span className="text-[11px] px-2 py-0.5 bg-emerald-900/50 text-emerald-400 rounded-full font-medium">
               목표 달성 {targetReachedCount}개
+            </span>
+          )}
+          {weightAlertCount > 0 && (
+            <span className="text-[11px] px-2 py-0.5 bg-amber-900/50 text-amber-400 rounded-full font-medium">
+              ⚠ 비중 초과 {weightAlertCount}개
             </span>
           )}
         </div>
@@ -137,6 +153,11 @@ export function PositionTable({ positions, loading, onRefresh, onSelect }: Props
                 const targetReached = targetPct != null && targetPct >= 100
                 const isManual = manualPrices[pos.ticker] != null && pos.currentPrice === manualPrices[pos.ticker]
 
+                const weightLimit = weightAlerts[pos.ticker]
+                const posValue = pos.totalValue > 0 ? pos.totalValue : pos.totalCost
+                const posWeight = totalPortfolioValue > 0 ? (posValue / totalPortfolioValue) * 100 : 0
+                const weightExceeded = weightLimit != null && weightLimit > 0 && posWeight > weightLimit
+
                 return (
                   <tr
                     key={pos.ticker}
@@ -152,6 +173,14 @@ export function PositionTable({ positions, loading, onRefresh, onSelect }: Props
                             {targetReached && (
                               <span className="text-[10px] px-1.5 py-0.5 bg-emerald-900/60 text-emerald-400 rounded font-medium">
                                 🎯 목표
+                              </span>
+                            )}
+                            {weightExceeded && (
+                              <span
+                                className="text-[10px] px-1.5 py-0.5 bg-amber-900/60 text-amber-400 rounded font-medium"
+                                title={`비중 ${posWeight.toFixed(1)}% — 한도 ${weightLimit}% 초과`}
+                              >
+                                ⚠ {posWeight.toFixed(1)}%
                               </span>
                             )}
                           </div>

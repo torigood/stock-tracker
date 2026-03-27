@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react'
 import dayjs from 'dayjs'
-import { Market, TradeType } from '../../types'
-import { searchTickers, TickerEntry } from '../../data/tickerMap'
+import type { Market, TradeType, TickerEntry } from '../../types'
+import { searchTickers } from '../../data/tickerMap'
 import { usePortfolioStore } from '../../store/portfolioStore'
 
 interface Props {

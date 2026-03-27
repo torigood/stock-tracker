@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
-import { Market, PriceCache } from '../types'
+import type { Market, PriceCache } from '../types'
 
 const CACHE_TTL = 5 * 60 * 1000 // 5 minutes
 const globalCache = new Map<string, PriceCache>()

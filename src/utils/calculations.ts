@@ -1,4 +1,4 @@
-import { Trade, Position, Lot, PortfolioSummary, Market } from '../types'
+import type { Trade, Position, Lot, PortfolioSummary, Market } from '../types'
 
 /**
  * Calculate positions from trades using FIFO method.

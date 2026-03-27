@@ -1,4 +1,4 @@
-import { TickerEntry } from '../types'
+import type { TickerEntry } from '../types'
 
 export const TICKER_MAP: TickerEntry[] = [
   // ── KRX ──────────────────────────────────────────────────────────────────

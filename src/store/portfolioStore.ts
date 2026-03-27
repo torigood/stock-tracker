@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
-import { Trade } from '../types'
+import type { Trade } from '../types'
 
 interface PortfolioStore {
   trades: Trade[]

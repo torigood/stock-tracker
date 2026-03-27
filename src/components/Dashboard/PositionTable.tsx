@@ -1,4 +1,4 @@
-import { Position } from '../../types'
+import type { Position } from '../../types'
 import { formatPrice, formatCurrency, formatPercent, formatNumber } from '../../utils/calculations'
 import { RefreshIcon } from '../Layout/Icons'
 

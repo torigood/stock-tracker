@@ -1,4 +1,4 @@
-import { PortfolioSummary } from '../../types'
+import type { PortfolioSummary } from '../../types'
 import { formatPercent } from '../../utils/calculations'
 
 interface Props {

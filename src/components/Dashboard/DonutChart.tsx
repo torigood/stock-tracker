@@ -1,6 +1,6 @@
 import { useMemo } from 'react'
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts'
-import { Position } from '../../types'
+import type { Position } from '../../types'
 
 interface Props {
   positions: Position[]

@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import dayjs from 'dayjs'
-import { Trade, Market } from '../../types'
+import type { Trade, Market } from '../../types'
 import { usePortfolioStore } from '../../store/portfolioStore'
 import { formatPrice } from '../../utils/calculations'
 import { TrashIcon, EditIcon } from '../Layout/Icons'

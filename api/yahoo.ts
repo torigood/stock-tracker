@@ -1,5 +1,6 @@
 // Vercel Edge Function — Yahoo Finance 프록시
-// 경로: /api/yahoo?symbol=AAPL
+// /api/yahoo?symbol=AAPL
+// /api/yahoo?symbol=AAPL&period1=1700000000&period2=1700086400  (과거 날짜)
 export const config = { runtime: 'edge' }
 
 export default async function handler(req: Request) {
@@ -13,9 +14,15 @@ export default async function handler(req: Request) {
     })
   }
 
+  const period1 = searchParams.get('period1')
+  const period2 = searchParams.get('period2')
+
+  const query = period1 && period2
+    ? `interval=1d&period1=${period1}&period2=${period2}`
+    : `interval=1d&range=1d`
+
   const yahooUrl =
-    `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}` +
-    `?interval=1d&range=1d`
+    `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?${query}`
 
   const upstream = await fetch(yahooUrl, {
     headers: {

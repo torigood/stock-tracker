@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, useCallback } from 'react'
 import dayjs from 'dayjs'
 import type { Market, TradeType, TickerEntry } from '../../types'
 import { searchTickers } from '../../data/tickerMap'
@@ -6,6 +6,26 @@ import { usePortfolioStore } from '../../store/portfolioStore'
 
 interface Props {
   onClose?: () => void
+}
+
+function toYahooSymbol(ticker: string, market: Market) {
+  if (market === 'KRX') return `${ticker}.KS`
+  if (market === 'ETF' && /^\d+$/.test(ticker)) return `${ticker}.KS`
+  return ticker
+}
+
+async function yahooFetch(symbol: string, period1?: number, period2?: number): Promise<number | null> {
+  const params = period1 && period2
+    ? `symbol=${encodeURIComponent(symbol)}&period1=${period1}&period2=${period2}`
+    : `symbol=${encodeURIComponent(symbol)}`
+  const res = await fetch(`/api/yahoo?${params}`)
+  const json = await res.json()
+  // Historical: last close; today: regularMarketPrice
+  const closes: number[] | undefined = json?.chart?.result?.[0]?.indicators?.quote?.[0]?.close
+  const close = closes?.filter((v: number) => v != null).at(-1)
+  const spot: number | undefined = json?.chart?.result?.[0]?.meta?.regularMarketPrice
+  const price = close ?? spot
+  return typeof price === 'number' ? price : null
 }
 
 export function TradeForm({ onClose }: Props) {
@@ -16,15 +36,32 @@ export function TradeForm({ onClose }: Props) {
   const [name, setName] = useState('')
   const [market, setMarket] = useState<Market>('US')
   const [quantity, setQuantity] = useState('')
-  const [price, setPrice] = useState('')
+  const [price, setPrice] = useState('')         // always in priceUnit
+  const [totalAmount, setTotalAmount] = useState('') // always in priceUnit
+  const [lastEdited, setLastEdited] = useState<'qty' | 'amount'>('qty')
+  const [priceUnit, setPriceUnit] = useState<'usd' | 'krw'>('usd')
+  const [exchangeRate, setExchangeRate] = useState(1380)
   const [date, setDate] = useState(dayjs().format('YYYY-MM-DD'))
   const [note, setNote] = useState('')
   const [suggestions, setSuggestions] = useState<TickerEntry[]>([])
   const [showSuggestions, setShowSuggestions] = useState(false)
   const [submitted, setSubmitted] = useState(false)
   const [fetchingPrice, setFetchingPrice] = useState(false)
+  const [priceError, setPriceError] = useState('')
 
   const sugRef = useRef<HTMLDivElement>(null)
+
+  // Fetch exchange rate once on mount
+  useEffect(() => {
+    yahooFetch('USDKRW=X').then((rate) => {
+      if (rate) setExchangeRate(Math.round(rate))
+    }).catch(() => {})
+  }, [])
+
+  // Reset priceUnit when market changes
+  useEffect(() => {
+    setPriceUnit(market === 'KRX' ? 'krw' : 'usd')
+  }, [market])
 
   // Close suggestions on outside click
   useEffect(() => {
@@ -51,52 +88,131 @@ export function TradeForm({ onClose }: Props) {
     setShowSuggestions(false)
   }
 
-  async function fetchCurrentPrice() {
+  // Fetch price for selected date
+  const fetchCurrentPrice = useCallback(async () => {
     if (!ticker) return
     setFetchingPrice(true)
+    setPriceError('')
     try {
-      const symbol = market === 'KRX' || (market === 'ETF' && /^\d+$/.test(ticker))
-        ? `${ticker}.KS`
-        : ticker
-      const res = await fetch(`/api/yahoo?symbol=${encodeURIComponent(symbol)}`)
-      const json = await res.json()
-      const p = json?.chart?.result?.[0]?.meta?.regularMarketPrice
-      if (typeof p === 'number') setPrice(String(p))
+      const symbol = toYahooSymbol(ticker, market)
+      const isToday = date === dayjs().format('YYYY-MM-DD')
+
+      let fetchedPrice: number | null
+      if (isToday) {
+        fetchedPrice = await yahooFetch(symbol)
+      } else {
+        // Use the selected date (add 1 day buffer to capture that day's close)
+        const d = dayjs(date)
+        const period1 = d.unix()
+        const period2 = d.add(2, 'day').unix()
+        fetchedPrice = await yahooFetch(symbol, period1, period2)
+      }
+
+      if (fetchedPrice === null) {
+        setPriceError('시세를 찾을 수 없습니다 (공휴일/주말 확인)')
+        return
+      }
+
+      // Convert to display unit
+      const displayPrice = priceUnit === 'krw' && market === 'US'
+        ? Math.round(fetchedPrice * exchangeRate)
+        : fetchedPrice
+
+      setPrice(String(displayPrice))
     } catch {
-      // 조회 실패 시 무시
+      setPriceError('조회 실패. 다시 시도해주세요.')
     } finally {
       setFetchingPrice(false)
     }
+  }, [ticker, market, date, priceUnit, exchangeRate])
+
+  function handleQtyChange(val: string) {
+    setQuantity(val)
+    setLastEdited('qty')
+    const q = parseFloat(val)
+    const p = parseFloat(price)
+    if (!isNaN(q) && !isNaN(p) && p > 0) {
+      setTotalAmount(priceUnit === 'krw' ? String(Math.round(q * p)) : (q * p).toFixed(4))
+    } else {
+      setTotalAmount('')
+    }
+  }
+
+  function handleAmountChange(val: string) {
+    setTotalAmount(val)
+    setLastEdited('amount')
+    const amt = parseFloat(val)
+    const p = parseFloat(price)
+    if (!isNaN(amt) && !isNaN(p) && p > 0) {
+      setQuantity((amt / p).toFixed(6))
+    } else {
+      setQuantity('')
+    }
+  }
+
+  // Price stored in native currency (USD for US, KRW for KRX/ETF-KR)
+  function getNativePrice(): number {
+    const p = parseFloat(price)
+    if (isNaN(p)) return 0
+    if (market === 'US' && priceUnit === 'krw') return p / exchangeRate
+    return p
+  }
+
+  function getFinalQty(): number {
+    return parseFloat(quantity) || 0
   }
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
-    if (!ticker || !name || !quantity || !price || !date) return
+    const finalQty = getFinalQty()
+    const nativePrice = getNativePrice()
+    if (!ticker || !name || !finalQty || !nativePrice || !date) return
 
     addTrade({
       ticker,
       name,
       market,
       type: tab,
-      quantity: parseFloat(quantity),
-      price: parseFloat(price),
+      quantity: finalQty,
+      price: nativePrice,
       date,
       note,
     })
 
-    // Reset form
     setTicker('')
     setName('')
     setQuantity('')
     setPrice('')
+    setTotalAmount('')
     setNote('')
     setDate(dayjs().format('YYYY-MM-DD'))
+    setPriceError('')
+    setLastEdited('qty')
     setSubmitted(true)
     setTimeout(() => {
       setSubmitted(false)
       onClose?.()
     }, 1200)
   }
+
+  const showUnitToggle = market === 'US'
+  const unitLabel = priceUnit === 'usd' ? 'USD' : 'KRW'
+  const altPrice = (() => {
+    const p = parseFloat(price)
+    if (!p || !showUnitToggle) return null
+    if (priceUnit === 'usd') return `≈ ₩${Math.round(p * exchangeRate).toLocaleString('ko-KR')}`
+    return `≈ $${(p / exchangeRate).toFixed(2)}`
+  })()
+
+  const totalPreview = (() => {
+    const p = parseFloat(price)
+    const qty = getFinalQty()
+    if (!p || !qty) return null
+    const total = p * qty
+    return priceUnit === 'krw'
+      ? `₩${Math.round(total).toLocaleString('ko-KR')}`
+      : `$${total.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+  })()
 
   return (
     <div className="card p-6 max-w-lg w-full mx-auto">
@@ -118,9 +234,7 @@ export function TradeForm({ onClose }: Props) {
             onClick={() => setTab(t)}
             className={`flex-1 py-1.5 rounded-md text-sm font-medium transition-colors ${
               tab === t
-                ? t === 'buy'
-                  ? 'bg-emerald-600 text-white'
-                  : 'bg-red-600 text-white'
+                ? t === 'buy' ? 'bg-emerald-600 text-white' : 'bg-red-600 text-white'
                 : 'text-slate-400 hover:text-slate-200'
             }`}
           >
@@ -130,6 +244,7 @@ export function TradeForm({ onClose }: Props) {
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-4">
+
         {/* Ticker search */}
         <div ref={sugRef} className="relative">
           <label className="label">티커 검색</label>
@@ -155,15 +270,11 @@ export function TradeForm({ onClose }: Props) {
                     <span className="font-mono text-sm text-slate-200">{s.ticker}</span>
                     <span className="text-slate-400 text-xs ml-2">{s.name}</span>
                   </div>
-                  <span
-                    className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${
-                      s.market === 'KRX'
-                        ? 'bg-blue-900/60 text-blue-300'
-                        : s.market === 'US'
-                        ? 'bg-indigo-900/60 text-indigo-300'
-                        : 'bg-amber-900/60 text-amber-300'
-                    }`}
-                  >
+                  <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${
+                    s.market === 'KRX' ? 'bg-blue-900/60 text-blue-300'
+                    : s.market === 'US' ? 'bg-indigo-900/60 text-indigo-300'
+                    : 'bg-amber-900/60 text-amber-300'
+                  }`}>
                     {s.market}
                   </span>
                 </button>
@@ -172,7 +283,7 @@ export function TradeForm({ onClose }: Props) {
           )}
         </div>
 
-        {/* Name + Market row */}
+        {/* Name + Market */}
         <div className="grid grid-cols-2 gap-3">
           <div>
             <label className="label">종목명</label>
@@ -199,59 +310,6 @@ export function TradeForm({ onClose }: Props) {
           </div>
         </div>
 
-        {/* Qty + Price row */}
-        <div className="grid grid-cols-2 gap-3">
-          <div>
-            <label className="label">수량</label>
-            <input
-              type="number"
-              value={quantity}
-              onChange={(e) => setQuantity(e.target.value)}
-              placeholder="10"
-              min="0.001"
-              step="any"
-              className="input-field font-mono"
-              required
-            />
-          </div>
-          <div>
-            <div className="flex items-center justify-between mb-1">
-              <label className="label !mb-0">단가</label>
-              <button
-                type="button"
-                onClick={fetchCurrentPrice}
-                disabled={!ticker || fetchingPrice}
-                className="text-[11px] text-indigo-400 hover:text-indigo-300 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-              >
-                {fetchingPrice ? '조회 중...' : '현재가 불러오기'}
-              </button>
-            </div>
-            <input
-              type="number"
-              value={price}
-              onChange={(e) => setPrice(e.target.value)}
-              placeholder="185.50"
-              min="0"
-              step="any"
-              className="input-field font-mono"
-              required
-            />
-          </div>
-        </div>
-
-        {/* Total preview */}
-        {quantity && price && (
-          <div className="bg-surface-950 rounded-lg px-4 py-2.5 flex items-center justify-between text-sm">
-            <span className="text-slate-500">거래 금액</span>
-            <span className="font-mono text-slate-200 font-medium">
-              {(parseFloat(quantity) * parseFloat(price)).toLocaleString('en-US', {
-                minimumFractionDigits: 2,
-                maximumFractionDigits: 2,
-              })}
-            </span>
-          </div>
-        )}
-
         {/* Date */}
         <div>
           <label className="label">거래일</label>
@@ -263,6 +321,99 @@ export function TradeForm({ onClose }: Props) {
             required
           />
         </div>
+
+        {/* Price */}
+        <div>
+          <div className="flex items-center justify-between mb-1">
+            <div className="flex items-center gap-2">
+              <label className="label !mb-0">주당 가격</label>
+              {/* USD/KRW toggle — US 종목만 표시 */}
+              {showUnitToggle && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    const p = parseFloat(price)
+                    if (p) {
+                      const converted = priceUnit === 'usd'
+                        ? Math.round(p * exchangeRate)
+                        : parseFloat((p / exchangeRate).toFixed(4))
+                      setPrice(String(converted))
+                    }
+                    setPriceUnit((u) => u === 'usd' ? 'krw' : 'usd')
+                  }}
+                  className="text-[11px] px-2 py-0.5 rounded bg-slate-700 text-slate-300 hover:bg-slate-600 transition-colors font-mono"
+                >
+                  {unitLabel} ⇄
+                </button>
+              )}
+            </div>
+            <button
+              type="button"
+              onClick={fetchCurrentPrice}
+              disabled={!ticker || fetchingPrice}
+              className="text-[11px] text-indigo-400 hover:text-indigo-300 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+            >
+              {fetchingPrice ? '조회 중...' : `${date === dayjs().format('YYYY-MM-DD') ? '현재가' : '해당일 시세'} 불러오기`}
+            </button>
+          </div>
+          <input
+            type="number"
+            value={price}
+            onChange={(e) => { setPrice(e.target.value); setPriceError('') }}
+            placeholder={priceUnit === 'krw' ? '150000' : '183.50'}
+            min="0"
+            step="any"
+            className="input-field font-mono"
+            required
+          />
+          {altPrice && (
+            <p className="text-xs text-slate-500 mt-1 font-mono">{altPrice}
+              <span className="text-slate-600 ml-1">(1 USD = ₩{exchangeRate.toLocaleString()})</span>
+            </p>
+          )}
+          {priceError && <p className="text-xs text-red-400 mt-1">{priceError}</p>}
+        </div>
+
+        {/* Qty + Amount (연동) */}
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label className="label">
+              수량 (주){lastEdited === 'amount' && quantity && <span className="text-indigo-400 ml-1">← 자동</span>}
+            </label>
+            <input
+              type="number"
+              value={quantity}
+              onChange={(e) => handleQtyChange(e.target.value)}
+              placeholder="10"
+              min="0.000001"
+              step="any"
+              className="input-field font-mono"
+              required
+            />
+          </div>
+          <div>
+            <label className="label">
+              총 금액 ({unitLabel}){lastEdited === 'qty' && totalAmount && <span className="text-indigo-400 ml-1">← 자동</span>}
+            </label>
+            <input
+              type="number"
+              value={totalAmount}
+              onChange={(e) => handleAmountChange(e.target.value)}
+              placeholder={priceUnit === 'krw' ? '10000' : '100'}
+              min="0"
+              step="any"
+              className="input-field font-mono"
+            />
+          </div>
+        </div>
+
+        {/* Total preview */}
+        {totalPreview && (
+          <div className="bg-surface-950 rounded-lg px-4 py-2.5 flex items-center justify-between text-sm">
+            <span className="text-slate-500">거래 금액</span>
+            <span className="font-mono text-slate-200 font-medium">{totalPreview}</span>
+          </div>
+        )}
 
         {/* Note */}
         <div>

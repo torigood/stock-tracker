@@ -6,9 +6,10 @@ interface Props {
   positions: Position[]
   loading: boolean
   onRefresh: () => void
+  onSelect: (position: Position) => void
 }
 
-export function PositionTable({ positions, loading, onRefresh }: Props) {
+export function PositionTable({ positions, loading, onRefresh, onSelect }: Props) {
   return (
     <div className="card overflow-hidden">
       {/* Header */}
@@ -59,7 +60,8 @@ export function PositionTable({ positions, loading, onRefresh }: Props) {
                 return (
                   <tr
                     key={pos.ticker}
-                    className="border-b border-slate-800/60 hover:bg-slate-800/40 transition-colors"
+                    onClick={() => onSelect(pos)}
+                    className="border-b border-slate-800/60 hover:bg-slate-800/40 transition-colors cursor-pointer"
                   >
                     {/* 종목명 */}
                     <td className="px-5 py-3.5">

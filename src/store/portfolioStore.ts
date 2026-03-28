@@ -36,6 +36,7 @@ interface PortfolioStore {
   tickerNotes: Record<string, string[]>    // ticker → notes array
   targetAllocation: Record<string, number> // ticker → target weight %
   hiddenWidgets: string[]                  // widget IDs to hide
+  favorites: string[]                      // watchlist tickers
 
   // Reminders & pinned notes
   reminders: Reminder[]
@@ -69,6 +70,7 @@ interface PortfolioStore {
   deleteTickerNote: (ticker: string, index: number) => void
   setTargetAllocation: (ticker: string, pct: number | null) => void
   setWidgetHidden: (id: string, hidden: boolean) => void
+  toggleFavorite: (ticker: string) => void
 
   // Reminders
   addReminder: (r: Omit<Reminder, 'id' | 'dismissed'>) => void
@@ -104,6 +106,7 @@ export const usePortfolioStore = create<PortfolioStore>()(
       tickerNotes: {},
       targetAllocation: {},
       hiddenWidgets: [],
+      favorites: [],
       reminders: [],
       pinnedNotes: [],
 
@@ -291,6 +294,13 @@ export const usePortfolioStore = create<PortfolioStore>()(
             : state.hiddenWidgets.filter((w) => w !== id),
         })),
 
+      toggleFavorite: (ticker) =>
+        set((state) => ({
+          favorites: state.favorites.includes(ticker)
+            ? state.favorites.filter((t) => t !== ticker)
+            : [...state.favorites, ticker],
+        })),
+
       // ── Reminders ───────────────────────────────────────────────────────────
 
       addReminder: (r) =>
@@ -329,7 +339,7 @@ export const usePortfolioStore = create<PortfolioStore>()(
     }),
     {
       name: 'stock-tracker-v1',
-      version: 4,
+      version: 5,
       migrate: (persistedState: unknown, version: number) => {
         const s = persistedState as Record<string, unknown>
         if (version < 2) {
@@ -365,6 +375,9 @@ export const usePortfolioStore = create<PortfolioStore>()(
             targetAllocation: {},
             hiddenWidgets: [],
           })
+        }
+        if (version < 5) {
+          Object.assign(s, { favorites: [] })
         }
         return s
       },

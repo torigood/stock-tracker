@@ -317,6 +317,10 @@ const ko = {
   'search.range3m': '3개월',
   'search.range1y': '1년',
   'search.noResult': '검색 결과 없음',
+  'search.indices': '주요 지수',
+  'search.myHoldings': '보유 종목',
+  'search.favorites': '즐겨찾기',
+  'search.favoritesEmpty': '별표(★)를 눌러 즐겨찾기에 추가하세요',
 
   // Empty state
   'empty.title': '아직 보유 종목이 없어요',
@@ -648,6 +652,10 @@ const en: Record<keyof typeof ko, string> = {
   'search.range3m': '3M',
   'search.range1y': '1Y',
   'search.noResult': 'No results',
+  'search.indices': 'Market Indices',
+  'search.myHoldings': 'My Holdings',
+  'search.favorites': 'Favorites',
+  'search.favoritesEmpty': 'Press ★ to add to favorites',
 
   // Empty state
   'empty.title': 'No holdings yet',

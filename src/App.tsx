@@ -3,11 +3,12 @@ import { Navbar } from './components/Layout/Navbar'
 import { DashboardPage } from './pages/DashboardPage'
 import { HistoryPage } from './pages/HistoryPage'
 import { AddTradePage } from './pages/AddTradePage'
+import { StockSearchPage } from './pages/StockSearchPage'
 import { DataManager } from './components/DataManager/DataManager'
 import { SettingsModal } from './components/Settings/SettingsModal'
 import { usePortfolioStore } from './store/portfolioStore'
 
-type Page = 'dashboard' | 'history' | 'add'
+type Page = 'dashboard' | 'history' | 'add' | 'search'
 
 export default function App() {
   const [page, setPage] = useState<Page>('dashboard')
@@ -54,6 +55,9 @@ export default function App() {
         {page === 'dashboard' && <DashboardPage />}
         {page === 'history' && <HistoryPage />}
         {page === 'add' && <AddTradePage onDone={() => setPage('dashboard')} />}
+        {page === 'search' && (
+          <StockSearchPage onAddTrade={() => setPage('add')} />
+        )}
       </main>
 
       <DataManager

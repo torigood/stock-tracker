@@ -4,7 +4,7 @@ import { usePortfolioStore } from '../../store/portfolioStore'
 import { useI18n } from '../../hooks/useI18n'
 import { WIDGETS } from '../../constants/widgets'
 
-type Page = 'dashboard' | 'history' | 'add'
+type Page = 'dashboard' | 'history' | 'add' | 'search'
 
 interface NavbarProps {
   page: Page
@@ -198,6 +198,9 @@ export function Navbar({ page, onNavigate, onOpenDataManager, onOpenSettings }: 
           </NavLink>
           <NavLink active={page === 'history'} onClick={() => onNavigate('history')}>
             {t('nav.history')}
+          </NavLink>
+          <NavLink active={page === 'search'} onClick={() => onNavigate('search')}>
+            {t('search.nav')}
           </NavLink>
 
           {/* Exchange rate display + override */}

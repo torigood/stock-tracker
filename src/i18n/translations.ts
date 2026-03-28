@@ -298,6 +298,26 @@ const ko = {
   'settings.save': '저장',
   'settings.reset': '자동으로 되돌리기',
 
+  // Stock search page
+  'search.nav': '종목 검색',
+  'search.placeholder': '티커 또는 종목명 검색... (AAPL, 삼성전자)',
+  'search.hint': '티커를 검색해서 시세와 차트를 확인하세요',
+  'search.loading': '불러오는 중...',
+  'search.error': '데이터를 불러올 수 없습니다',
+  'search.currentPrice': '현재가',
+  'search.prevClose': '전일 종가',
+  'search.dayRange': '당일 범위',
+  'search.week52': '52주 범위',
+  'search.volume': '거래량',
+  'search.marketCap': '시가총액',
+  'search.addTrade': '거래 추가',
+  'search.range1d': '1일',
+  'search.range1w': '1주',
+  'search.range1m': '1개월',
+  'search.range3m': '3개월',
+  'search.range1y': '1년',
+  'search.noResult': '검색 결과 없음',
+
   // Empty state
   'empty.title': '아직 보유 종목이 없어요',
   'empty.desc': '첫 거래를 입력하면 포트폴리오 현황이 여기에 표시됩니다.',
@@ -608,6 +628,26 @@ const en: Record<keyof typeof ko, string> = {
   'settings.currency': 'Display Currency',
   'settings.save': 'Save',
   'settings.reset': 'Revert to auto',
+
+  // Stock search page
+  'search.nav': 'Search',
+  'search.placeholder': 'Search ticker or name... (AAPL, Samsung)',
+  'search.hint': 'Search a ticker to view price and chart',
+  'search.loading': 'Loading...',
+  'search.error': 'Failed to load data',
+  'search.currentPrice': 'Current Price',
+  'search.prevClose': 'Prev Close',
+  'search.dayRange': 'Day Range',
+  'search.week52': '52-Week Range',
+  'search.volume': 'Volume',
+  'search.marketCap': 'Market Cap',
+  'search.addTrade': 'Add Trade',
+  'search.range1d': '1D',
+  'search.range1w': '1W',
+  'search.range1m': '1M',
+  'search.range3m': '3M',
+  'search.range1y': '1Y',
+  'search.noResult': 'No results',
 
   // Empty state
   'empty.title': 'No holdings yet',

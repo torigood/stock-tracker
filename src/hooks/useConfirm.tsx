@@ -46,38 +46,38 @@ export function useConfirm(suppressKey: string) {
     <>
       <div className="fixed inset-0 bg-black/60 z-40 backdrop-blur-sm" onClick={handleCancel} />
       <div className="fixed inset-0 z-50 flex items-center justify-center px-4 pointer-events-none">
-        <div className="bg-surface-900 border border-slate-800 rounded-xl shadow-2xl w-full max-w-sm pointer-events-auto">
+        <div className="bg-surface-900 border border-slate-800 rounded-xl shadow-2xl w-full max-w-xs pointer-events-auto">
           {/* Header */}
-          <div className="flex items-center justify-between px-5 py-4 border-b border-slate-800">
-            <h2 className="text-base font-semibold text-slate-100">{pending.title}</h2>
+          <div className="flex items-center justify-between px-4 py-3 border-b border-slate-800">
+            <h2 className="text-sm font-semibold text-slate-100">{pending.title}</h2>
             <button
               onClick={handleCancel}
-              className="text-slate-500 hover:text-slate-300 text-2xl leading-none"
+              className="text-slate-500 hover:text-slate-300 text-xl leading-none"
             >×</button>
           </div>
 
           {/* Body */}
-          <div className="px-5 py-5">
-            <p className="text-sm text-slate-300 whitespace-pre-line leading-relaxed">
+          <div className="px-4 py-3">
+            <p className="text-xs text-slate-400 whitespace-pre-line leading-relaxed">
               {pending.message}
             </p>
           </div>
 
           {/* Footer */}
-          <div className="px-5 pb-5 space-y-3">
-            <label className="flex items-center gap-2.5 cursor-pointer select-none">
+          <div className="px-4 pb-4 space-y-2.5">
+            <label className="flex items-center gap-2 cursor-pointer select-none">
               <input
                 type="checkbox"
                 checked={skipDay}
                 onChange={(e) => setSkipDay(e.target.checked)}
-                className="w-4 h-4 rounded accent-indigo-500 cursor-pointer"
+                className="w-3.5 h-3.5 rounded accent-indigo-500 cursor-pointer"
               />
-              <span className="text-xs text-slate-500">{t('confirm.skipDay')}</span>
+              <span className="text-[11px] text-slate-600">{t('confirm.skipDay')}</span>
             </label>
-            <div className="flex gap-2">
+            <div className="flex items-center gap-2">
               <button
                 onClick={handleConfirm}
-                className={`flex-1 py-2 rounded-lg text-sm font-medium transition-colors ${
+                className={`px-4 py-1.5 rounded-lg text-xs font-medium transition-colors ${
                   isDanger
                     ? 'bg-red-600 hover:bg-red-500 text-white'
                     : 'bg-indigo-600 hover:bg-indigo-500 text-white'
@@ -87,7 +87,7 @@ export function useConfirm(suppressKey: string) {
               </button>
               <button
                 onClick={handleCancel}
-                className="text-sm text-slate-400 hover:text-slate-200 px-4 transition-colors"
+                className="text-xs text-slate-500 hover:text-slate-300 transition-colors"
               >
                 {t('nav.cancel')}
               </button>

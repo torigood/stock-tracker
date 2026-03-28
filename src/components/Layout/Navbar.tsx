@@ -3,6 +3,7 @@ import { TrendingUp } from './Icons'
 import { usePortfolioStore } from '../../store/portfolioStore'
 import { useI18n } from '../../hooks/useI18n'
 import { useConfirm } from '../../hooks/useConfirm'
+import { usePrompt } from '../../hooks/usePrompt'
 import { WIDGETS } from '../../constants/widgets'
 
 type Page = 'dashboard' | 'history' | 'add' | 'search'
@@ -45,6 +46,7 @@ export function Navbar({ page, onNavigate, onOpenDataManager, onOpenSettings }: 
   const [renameInput, setRenameInput] = useState('')
 
   const { confirmDialog, requestConfirm } = useConfirm('delete-portfolio')
+  const { promptDialog, requestPrompt } = usePrompt()
 
   const portfolioMenuRef = useRef<HTMLDivElement>(null)
   const widgetMenuRef = useRef<HTMLDivElement>(null)
@@ -68,11 +70,11 @@ export function Navbar({ page, onNavigate, onOpenDataManager, onOpenSettings }: 
   }, [])
 
   function handleAddPortfolio() {
-    const name = window.prompt(t('nav.addPortfolioPrompt'))
-    if (name?.trim()) {
-      addPortfolio(name.trim())
-      setShowPortfolioMenu(false)
-    }
+    requestPrompt({
+      title: t('nav.newPortfolio').replace('+ ', ''),
+      placeholder: t('nav.addPortfolioPrompt'),
+      onConfirm: (name) => { addPortfolio(name); setShowPortfolioMenu(false) },
+    })
   }
 
   function handleRenamePortfolio(id: string, currentName: string) {
@@ -111,6 +113,7 @@ export function Navbar({ page, onNavigate, onOpenDataManager, onOpenSettings }: 
   return (
     <>
     {confirmDialog}
+    {promptDialog}
     <nav className="bg-surface-900 border-b border-slate-800 sticky top-0 z-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 flex items-center justify-between h-14">
         {/* Logo + Portfolio Switcher */}

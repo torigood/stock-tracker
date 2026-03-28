@@ -38,6 +38,7 @@ const TAB_ACTIVE_CLASS: Record<TradeType, string> = {
 export function TradeForm({ onClose }: Props) {
   const addTrade = usePortfolioStore((s) => s.addTrade)
   const storeExchangeRate = usePortfolioStore((s) => s.exchangeRate)
+  const existingTrades = usePortfolioStore((s) => s.trades)
   const { t } = useI18n()
 
   const [tab, setTab] = useState<TradeType>('buy')
@@ -110,7 +111,19 @@ export function TradeForm({ onClose }: Props) {
 
   function handleTickerChange(val: string) {
     setTicker(val.toUpperCase())
-    const results = searchTickers(val)
+    const staticResults = searchTickers(val)
+    // Also include tickers already in the portfolio (not in static list)
+    const staticTickers = new Set(staticResults.map((r) => r.ticker))
+    const portfolioResults: TickerEntry[] = []
+    const seen = new Set<string>()
+    for (const tr of existingTrades) {
+      if (seen.has(tr.ticker) || staticTickers.has(tr.ticker)) continue
+      if (tr.ticker.toUpperCase().includes(val.toUpperCase()) || tr.name.toLowerCase().includes(val.toLowerCase())) {
+        portfolioResults.push({ ticker: tr.ticker, name: tr.name, market: tr.market })
+        seen.add(tr.ticker)
+      }
+    }
+    const results = [...staticResults, ...portfolioResults].slice(0, 8)
     setSuggestions(results)
     setShowSuggestions(results.length > 0)
   }

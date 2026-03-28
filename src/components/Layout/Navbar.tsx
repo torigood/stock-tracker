@@ -9,9 +9,10 @@ interface NavbarProps {
   page: Page
   onNavigate: (page: Page) => void
   onOpenDataManager: () => void
+  onOpenSettings: () => void
 }
 
-export function Navbar({ page, onNavigate, onOpenDataManager }: NavbarProps) {
+export function Navbar({ page, onNavigate, onOpenDataManager, onOpenSettings }: NavbarProps) {
   const displayCurrency = usePortfolioStore((s) => s.displayCurrency)
   const setDisplayCurrency = usePortfolioStore((s) => s.setDisplayCurrency)
   const exchangeRate = usePortfolioStore((s) => s.exchangeRate)
@@ -55,7 +56,7 @@ export function Navbar({ page, onNavigate, onOpenDataManager }: NavbarProps) {
   }, [])
 
   function handleAddPortfolio() {
-    const name = window.prompt(language === 'en' ? 'Enter new portfolio name' : '새 포트폴리오 이름을 입력하세요')
+    const name = window.prompt(t('nav.addPortfolioPrompt'))
     if (name?.trim()) {
       addPortfolio(name.trim())
       setShowPortfolioMenu(false)
@@ -74,9 +75,7 @@ export function Navbar({ page, onNavigate, onOpenDataManager }: NavbarProps) {
 
   function handleDeletePortfolio(id: string, name: string) {
     if (portfolios.length <= 1) return
-    if (confirm(language === 'en'
-      ? `Delete portfolio "${name}"?\nAll trade data will be permanently deleted.`
-      : `"${name}" 포트폴리오를 삭제하시겠습니까?\n포함된 모든 거래 데이터가 삭제됩니다.`)) {
+    if (confirm(t('nav.deletePortfolioConfirm', { name }))) {
       deletePortfolio(id)
     }
   }
@@ -296,10 +295,22 @@ export function Navbar({ page, onNavigate, onOpenDataManager }: NavbarProps) {
             )}
           </button>
 
+          {/* Settings button */}
+          <button
+            onClick={onOpenSettings}
+            title={t('nav.settings')}
+            className="ml-1 p-1.5 rounded-lg text-slate-400 hover:text-slate-200 hover:bg-slate-800 transition-colors duration-150"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="12" cy="12" r="3"/>
+              <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+            </svg>
+          </button>
+
           {/* Data manager button */}
           <button
             onClick={onOpenDataManager}
-            title="데이터 관리"
+            title={t('nav.dataManager')}
             className="ml-1 p-1.5 rounded-lg text-slate-400 hover:text-slate-200 hover:bg-slate-800 transition-colors duration-150"
           >
             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">

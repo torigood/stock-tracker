@@ -271,6 +271,38 @@ const ko = {
   'widget.performance': '성과 지표',
   'widget.showHide': '위젯 표시/숨김',
 
+  // Donut chart
+  'donut.title': '포트폴리오 비중',
+  'donut.bySector': '섹터별',
+  'donut.byTicker': '종목별',
+  'donut.noData': '데이터 없음',
+  'donut.domestic': '국내주식',
+  'donut.us': '미국주식',
+  'donut.other': '기타',
+  'widget.donut': '비중 차트',
+
+  // Navbar prompts
+  'nav.addPortfolioPrompt': '새 포트폴리오 이름을 입력하세요',
+  'nav.deletePortfolioConfirm': '"{name}" 포트폴리오를 삭제하시겠습니까?\n포함된 모든 거래 데이터가 삭제됩니다.',
+  'nav.dataManager': '데이터 관리',
+  'nav.settings': '설정',
+
+  // Settings
+  'settings.title': '설정',
+  'settings.taxRate': '세율 (%)',
+  'settings.taxRateDesc': '실현 손익 세금 계산에 사용',
+  'settings.exchangeRate': '환율 (USD/KRW)',
+  'settings.exchangeRateDesc': '수동 설정 시 자동 환율 무시',
+  'settings.exchangeRateAuto': '자동',
+  'settings.currency': '표시 통화',
+  'settings.save': '저장',
+  'settings.reset': '자동으로 되돌리기',
+
+  // Empty state
+  'empty.title': '아직 보유 종목이 없어요',
+  'empty.desc': '첫 거래를 입력하면 포트폴리오 현황이 여기에 표시됩니다.',
+  'empty.cta': '+ 거래 입력하기',
+
   // Common
   'common.shares': '주',
   'common.manual': '수동',
@@ -549,6 +581,38 @@ const en: Record<keyof typeof ko, string> = {
   'widget.dividendCalendar': 'Dividends',
   'widget.performance': 'Performance',
   'widget.showHide': 'Show/Hide Widgets',
+
+  // Donut chart
+  'donut.title': 'Portfolio Weight',
+  'donut.bySector': 'By Sector',
+  'donut.byTicker': 'By Ticker',
+  'donut.noData': 'No Data',
+  'donut.domestic': 'Domestic',
+  'donut.us': 'US Stocks',
+  'donut.other': 'Other',
+  'widget.donut': 'Weight Chart',
+
+  // Navbar prompts
+  'nav.addPortfolioPrompt': 'Enter new portfolio name',
+  'nav.deletePortfolioConfirm': 'Delete portfolio "{name}"?\nAll trade data will be permanently deleted.',
+  'nav.dataManager': 'Data Manager',
+  'nav.settings': 'Settings',
+
+  // Settings
+  'settings.title': 'Settings',
+  'settings.taxRate': 'Tax Rate (%)',
+  'settings.taxRateDesc': 'Used for realized P&L tax estimates',
+  'settings.exchangeRate': 'Exchange Rate (USD/KRW)',
+  'settings.exchangeRateDesc': 'Override auto rate when set manually',
+  'settings.exchangeRateAuto': 'Auto',
+  'settings.currency': 'Display Currency',
+  'settings.save': 'Save',
+  'settings.reset': 'Revert to auto',
+
+  // Empty state
+  'empty.title': 'No holdings yet',
+  'empty.desc': 'Add your first trade and your portfolio will appear here.',
+  'empty.cta': '+ Add a trade',
 
   // Common
   'common.shares': ' shares',

@@ -4,6 +4,7 @@ import { DashboardPage } from './pages/DashboardPage'
 import { HistoryPage } from './pages/HistoryPage'
 import { AddTradePage } from './pages/AddTradePage'
 import { DataManager } from './components/DataManager/DataManager'
+import { SettingsModal } from './components/Settings/SettingsModal'
 import { usePortfolioStore } from './store/portfolioStore'
 
 type Page = 'dashboard' | 'history' | 'add'
@@ -11,6 +12,7 @@ type Page = 'dashboard' | 'history' | 'add'
 export default function App() {
   const [page, setPage] = useState<Page>('dashboard')
   const [showDataManager, setShowDataManager] = useState(false)
+  const [showSettings, setShowSettings] = useState(false)
   const setExchangeRate = usePortfolioStore((s) => s.setExchangeRate)
   const theme = usePortfolioStore((s) => s.theme)
 
@@ -45,6 +47,7 @@ export default function App() {
         page={page}
         onNavigate={setPage}
         onOpenDataManager={() => setShowDataManager(true)}
+        onOpenSettings={() => setShowSettings(true)}
       />
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 py-6">
@@ -56,6 +59,10 @@ export default function App() {
       <DataManager
         open={showDataManager}
         onClose={() => setShowDataManager(false)}
+      />
+      <SettingsModal
+        open={showSettings}
+        onClose={() => setShowSettings(false)}
       />
     </div>
   )

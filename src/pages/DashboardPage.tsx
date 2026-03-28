@@ -25,6 +25,7 @@ const WIDGETS = [
   { id: 'summary',         labelKey: 'widget.summary' as const },
   { id: 'portfolioChart',  labelKey: 'widget.portfolioChart' as const },
   { id: 'holdings',        labelKey: 'widget.holdings' as const },
+  { id: 'donut',           labelKey: 'widget.donut' as const },
   { id: 'heatmap',         labelKey: 'widget.heatmap' as const },
   { id: 'monthlyChart',    labelKey: 'widget.monthlyChart' as const },
   { id: 'performance',     labelKey: 'widget.performance' as const },
@@ -101,6 +102,16 @@ export function DashboardPage() {
       {isVisible('reminders') && <ReminderBanner />}
       {isVisible('pinnedNotes') && <PinnedNotes />}
       {isVisible('summary') && <SummaryCards summary={summary} />}
+
+      {/* Empty state */}
+      {positions.length === 0 && !loading && (
+        <div className="flex flex-col items-center justify-center py-20 text-center">
+          <div className="text-5xl mb-4 opacity-30">📈</div>
+          <p className="text-lg font-semibold text-slate-300 mb-2">{t('empty.title')}</p>
+          <p className="text-sm text-slate-500 mb-6 max-w-xs">{t('empty.desc')}</p>
+        </div>
+      )}
+
       {isVisible('portfolioChart') && <PortfolioChart />}
 
       {isVisible('performance') && <PerformanceMetrics positions={positions} />}
@@ -116,9 +127,11 @@ export function DashboardPage() {
             />
           </div>
         )}
-        <div>
-          <DonutChart positions={positions} />
-        </div>
+        {isVisible('donut') && (
+          <div>
+            <DonutChart positions={positions} />
+          </div>
+        )}
       </div>
 
       {(isVisible('heatmap') || isVisible('monthlyChart')) && (

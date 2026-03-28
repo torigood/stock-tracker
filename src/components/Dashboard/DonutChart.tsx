@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts'
 import type { Position } from '../../types'
 import { usePortfolioStore } from '../../store/portfolioStore'
+import { useI18n } from '../../hooks/useI18n'
 
 interface Props {
   positions: Position[]
@@ -13,15 +14,16 @@ const COLORS = [
   '#3b82f6', '#60a5fa', '#93c5fd', '#bfdbfe',
 ]
 
-const MARKET_SECTOR: Record<string, string> = {
-  KRX: '국내주식',
-  US: '미국주식',
-  ETF: 'ETF',
-}
-
 export function DonutChart({ positions }: Props) {
   const sectors = usePortfolioStore((s) => s.sectors)
+  const { t } = useI18n()
   const [viewMode, setViewMode] = useState<'ticker' | 'sector'>('ticker')
+
+  const marketSector = useMemo(() => ({
+    KRX: t('donut.domestic'),
+    US:  t('donut.us'),
+    ETF: 'ETF',
+  }), [t])
 
   const tickerData = useMemo(() => {
     if (positions.length === 0) return []
@@ -41,7 +43,7 @@ export function DonutChart({ positions }: Props) {
     if (positions.length === 0) return []
     const byGroup = new Map<string, number>()
     for (const pos of positions) {
-      const group = sectors[pos.ticker] || MARKET_SECTOR[pos.market] || '기타'
+      const group = sectors[pos.ticker] || marketSector[pos.market] || t('donut.other')
       const val = pos.totalValue > 0 ? pos.totalValue : pos.totalCost
       byGroup.set(group, (byGroup.get(group) ?? 0) + val)
     }
@@ -50,14 +52,14 @@ export function DonutChart({ positions }: Props) {
       .filter(([, v]) => v > 0)
       .map(([name, value]) => ({ name, ticker: name, value, percent: (value / total) * 100 }))
       .sort((a, b) => b.value - a.value)
-  }, [positions, sectors])
+  }, [positions, sectors, marketSector, t])
 
   const data = viewMode === 'ticker' ? tickerData : sectorData
 
   if (data.length === 0) {
     return (
       <div className="card p-5 flex items-center justify-center h-64">
-        <p className="text-slate-500 text-sm">데이터 없음</p>
+        <p className="text-slate-500 text-sm">{t('donut.noData')}</p>
       </div>
     )
   }
@@ -79,12 +81,12 @@ export function DonutChart({ positions }: Props) {
   return (
     <div className="card p-5">
       <div className="flex items-center justify-between mb-4">
-        <h2 className="text-base font-semibold text-slate-100">포트폴리오 비중</h2>
+        <h2 className="text-base font-semibold text-slate-100">{t('donut.title')}</h2>
         <button
           onClick={() => setViewMode((v) => v === 'ticker' ? 'sector' : 'ticker')}
           className="text-xs px-2.5 py-1 rounded-lg bg-slate-700 hover:bg-slate-600 text-slate-300 transition-colors"
         >
-          {viewMode === 'ticker' ? '섹터별' : '종목별'}
+          {viewMode === 'ticker' ? t('donut.bySector') : t('donut.byTicker')}
         </button>
       </div>
       <div className="flex flex-col md:flex-row items-center gap-6">
@@ -108,8 +110,6 @@ export function DonutChart({ positions }: Props) {
             </PieChart>
           </ResponsiveContainer>
         </div>
-
-        {/* Legend */}
         <div className="flex flex-wrap gap-x-4 gap-y-2">
           {data.map((d, i) => (
             <div key={d.ticker} className="flex items-center gap-2 text-xs">

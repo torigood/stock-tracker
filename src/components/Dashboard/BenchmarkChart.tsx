@@ -14,9 +14,12 @@ interface BenchmarkResult {
 }
 
 interface YahooQuote {
-  timestamp: number[]
-  indicators: {
-    quote: Array<{ close: (number | null)[] }>
+  chart: {
+    result: Array<{
+      indicators: {
+        quote: Array<{ close: (number | null)[] }>
+      }
+    }> | null
   }
 }
 
@@ -25,7 +28,7 @@ async function fetchBenchmarkReturn(symbol: string, period1: number, period2: nu
   const res = await fetch(url)
   if (!res.ok) return null
   const data = await res.json() as YahooQuote
-  const closes = data?.indicators?.quote?.[0]?.close
+  const closes = data?.chart?.result?.[0]?.indicators?.quote?.[0]?.close
   if (!closes || closes.length === 0) return null
   const startPrice = closes.find((c) => c != null) ?? null
   const lastClose = [...closes].reverse().find((c) => c != null) ?? null

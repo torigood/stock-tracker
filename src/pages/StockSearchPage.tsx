@@ -216,6 +216,10 @@ export function StockSearchPage({ onAddTrade }: Props) {
   const [meta, setMeta]               = useState<QuoteMeta | null>(null)
   const [chart, setChart]             = useState<ChartPoint[]>([])
 
+  // Browser-like history stack: null = grid view
+  const [navHistory, setNavHistory] = useState<(TickerEntry | null)[]>([null])
+  const [navIndex, setNavIndex]     = useState(0)
+
   const sugRef = useRef<HTMLDivElement>(null)
 
   // Unique portfolio tickers (as TickerEntry)
@@ -274,10 +278,41 @@ export function StockSearchPage({ onAddTrade }: Props) {
     setShowSug(results.length > 0)
   }
 
-  function selectEntry(entry: TickerEntry) {
+  function navigateTo(entry: TickerEntry | null) {
+    setNavHistory((prev) => {
+      const next = [...prev.slice(0, navIndex + 1), entry]
+      setNavIndex(next.length - 1)
+      return next
+    })
     setSelected(entry)
-    setQuery(entry.ticker)
+    setQuery(entry ? entry.ticker : '')
     setShowSug(false)
+    if (!entry) { setMeta(null); setChart([]) }
+  }
+
+  function goBack() {
+    if (navIndex <= 0) return
+    const newIndex = navIndex - 1
+    setNavIndex(newIndex)
+    const entry = navHistory[newIndex]
+    setSelected(entry)
+    setQuery(entry ? entry.ticker : '')
+    setShowSug(false)
+    if (!entry) { setMeta(null); setChart([]) }
+  }
+
+  function goForward() {
+    if (navIndex >= navHistory.length - 1) return
+    const newIndex = navIndex + 1
+    setNavIndex(newIndex)
+    const entry = navHistory[newIndex]
+    setSelected(entry)
+    setQuery(entry ? entry.ticker : '')
+    setShowSug(false)
+  }
+
+  function selectEntry(entry: TickerEntry) {
+    navigateTo(entry)
   }
 
   const loadData = useCallback(async (entry: TickerEntry, r: Range) => {
@@ -305,8 +340,31 @@ export function StockSearchPage({ onAddTrade }: Props) {
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
-      {/* Search bar */}
-      <div ref={sugRef} className="relative">
+      {/* Search bar + nav buttons */}
+      <div className="flex items-center gap-2">
+        {/* Back / Forward */}
+        <button
+          onClick={goBack}
+          disabled={navIndex <= 0}
+          className="flex-shrink-0 w-8 h-8 flex items-center justify-center rounded-lg text-slate-400 hover:text-slate-200 hover:bg-slate-700 disabled:opacity-25 disabled:cursor-not-allowed transition-colors"
+          title="뒤로"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <polyline points="15 18 9 12 15 6"/>
+          </svg>
+        </button>
+        <button
+          onClick={goForward}
+          disabled={navIndex >= navHistory.length - 1}
+          className="flex-shrink-0 w-8 h-8 flex items-center justify-center rounded-lg text-slate-400 hover:text-slate-200 hover:bg-slate-700 disabled:opacity-25 disabled:cursor-not-allowed transition-colors"
+          title="앞으로"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <polyline points="9 18 15 12 9 6"/>
+          </svg>
+        </button>
+
+      <div ref={sugRef} className="relative flex-1">
         <div className="relative">
           <svg className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-600 pointer-events-none" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
             <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
@@ -321,7 +379,7 @@ export function StockSearchPage({ onAddTrade }: Props) {
             autoFocus
           />
           {query && (
-            <button onClick={() => { setQuery(''); setSuggestions([]); setShowSug(false); setSelected(null); setMeta(null); setChart([]) }}
+            <button onClick={() => { setSuggestions([]); navigateTo(null) }}
               className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-600 hover:text-slate-300 text-lg">×</button>
           )}
         </div>
@@ -342,6 +400,7 @@ export function StockSearchPage({ onAddTrade }: Props) {
             ))}
           </div>
         )}
+      </div>
       </div>
 
       {/* ── Default grid (no selection) ───────────────────────────────────── */}

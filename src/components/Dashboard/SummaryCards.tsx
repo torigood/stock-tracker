@@ -1,6 +1,7 @@
 import type { PortfolioSummary } from '../../types'
 import { formatPercent } from '../../utils/calculations'
 import { useCurrency } from '../../hooks/useCurrency'
+import { useI18n } from '../../hooks/useI18n'
 
 interface Props {
   summary: PortfolioSummary
@@ -9,6 +10,7 @@ interface Props {
 export function SummaryCards({ summary }: Props) {
   const { totalInvested, totalValue, totalProfitLoss, totalProfitLossPercent, totalRealizedPL } = summary
   const { displayCurrency, fmtAmount } = useCurrency()
+  const { t } = useI18n()
   const hasPrices = totalValue > 0
 
   const displayBase = displayCurrency as 'KRW' | 'USD'
@@ -30,30 +32,30 @@ export function SummaryCards({ summary }: Props) {
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
       <Card
-        label="총 평가금액"
+        label={t('summary.totalValue')}
         value={hasPrices ? fmtAmount(totalValue, displayBase) : fmtAmount(totalInvested, displayBase)}
-        sub={hasPrices ? undefined : '시세 조회 전'}
+        sub={hasPrices ? undefined : t('summary.beforeFetch')}
         valueClass="text-white"
       />
       <Card
-        label="총 수익금"
+        label={t('summary.totalPL')}
         value={hasPrices ? (totalProfitLoss >= 0 ? '+' : '') + fmtAmount(totalProfitLoss, displayBase) : '–'}
-        sub={hasPrices ? formatPercent(totalProfitLossPercent) : '시세 조회 필요'}
+        sub={hasPrices ? formatPercent(totalProfitLossPercent) : t('summary.needFetch')}
         valueClass={hasPrices ? plColor : 'text-slate-500'}
         subClass={hasPrices ? plColor : 'text-slate-500'}
       />
       <Card
-        label="총 투자금액"
+        label={t('summary.totalInvested')}
         value={fmtAmount(totalInvested, displayBase)}
-        sub={`${summary.positions.length}개 종목`}
+        sub={t('summary.positions', { n: summary.positions.length })}
         valueClass="text-white"
       />
       <Card
-        label="실현 손익"
+        label={t('summary.realizedPL')}
         value={totalRealizedPL !== 0
           ? (totalRealizedPL >= 0 ? '+' : '') + fmtAmount(totalRealizedPL, displayBase)
           : '–'}
-        sub={totalRealizedPL !== 0 ? '매도 완료 기준' : '매도 내역 없음'}
+        sub={totalRealizedPL !== 0 ? t('summary.realizedBasis') : t('summary.noSells')}
         valueClass={totalRealizedPL !== 0 ? realizedColor : 'text-slate-500'}
         subClass="text-slate-500"
       />

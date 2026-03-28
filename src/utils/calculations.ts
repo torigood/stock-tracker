@@ -55,14 +55,22 @@ export function computeRealizedPL(trades: Trade[]): RealizedRecord[] {
 
     for (const trade of sorted) {
       if (trade.type === 'buy') {
-        lots.push({ price: trade.price, quantity: trade.quantity, date: trade.date })
+        // Include commission in cost basis (per-share)
+        const commissionPerShare = trade.commission != null && trade.quantity > 0
+          ? trade.commission / trade.quantity
+          : 0
+        lots.push({ price: trade.price + commissionPerShare, quantity: trade.quantity, date: trade.date })
       } else if (trade.type === 'sell') {
         hasActivity = true
+        // Deduct sell commission from effective sell price
+        const effectiveSellPrice = trade.price - (trade.commission != null && trade.quantity > 0
+          ? trade.commission / trade.quantity
+          : 0)
         let remaining = trade.quantity
         while (remaining > 0 && lots.length > 0) {
           const lot = lots[0]
           const consumed = Math.min(lot.quantity, remaining)
-          realizedPL += (trade.price - lot.price) * consumed
+          realizedPL += (effectiveSellPrice - lot.price) * consumed
           remaining -= consumed
           if (lot.quantity <= consumed) {
             lots.shift()
@@ -164,8 +172,12 @@ export function computePositions(trades: Trade[], fallbackExchangeRate = 1380): 
 
     for (const trade of sorted) {
       if (trade.type === 'buy') {
+        // Include commission in cost basis (per-share)
+        const commissionPerShare = trade.commission != null && trade.quantity > 0
+          ? trade.commission / trade.quantity
+          : 0
         lots.push({
-          price: trade.price,
+          price: trade.price + commissionPerShare,
           quantity: trade.quantity,
           date: trade.date,
           exchangeRate: trade.exchangeRateAtPurchase,
@@ -356,4 +368,17 @@ export function formatPercent(value: number): string {
 
 export function formatNumber(n: number): string {
   return n.toLocaleString('en-US')
+}
+
+// ── Performance metrics ───────────────────────────────────────────────────
+
+export function computeCAGR(
+  totalInvested: number,
+  totalValue: number,
+  holdingDays: number
+): number | null {
+  if (totalInvested <= 0 || totalValue <= 0 || holdingDays <= 0) return null
+  const years = holdingDays / 365
+  if (years < 0.5) return null // Not meaningful for very short periods
+  return (Math.pow(totalValue / totalInvested, 1 / years) - 1) * 100
 }

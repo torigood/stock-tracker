@@ -32,6 +32,10 @@ interface PortfolioStore {
   compactNumbers: boolean
   taxRate: number                          // e.g. 0.22 for 22%
   weightAlerts: Record<string, number>     // ticker → max weight %
+  language: 'ko' | 'en'
+  tickerNotes: Record<string, string[]>    // ticker → notes array
+  targetAllocation: Record<string, number> // ticker → target weight %
+  hiddenWidgets: string[]                  // widget IDs to hide
 
   // Reminders & pinned notes
   reminders: Reminder[]
@@ -60,6 +64,11 @@ interface PortfolioStore {
   toggleCompactNumbers: () => void
   setTaxRate: (r: number) => void
   setWeightAlert: (ticker: string, pct: number | null) => void
+  setLanguage: (lang: 'ko' | 'en') => void
+  addTickerNote: (ticker: string, note: string) => void
+  deleteTickerNote: (ticker: string, index: number) => void
+  setTargetAllocation: (ticker: string, pct: number | null) => void
+  setWidgetHidden: (id: string, hidden: boolean) => void
 
   // Reminders
   addReminder: (r: Omit<Reminder, 'id' | 'dismissed'>) => void
@@ -91,6 +100,10 @@ export const usePortfolioStore = create<PortfolioStore>()(
       compactNumbers: false,
       taxRate: 0.22,
       weightAlerts: {},
+      language: 'ko',
+      tickerNotes: {},
+      targetAllocation: {},
+      hiddenWidgets: [],
       reminders: [],
       pinnedNotes: [],
 
@@ -250,6 +263,34 @@ export const usePortfolioStore = create<PortfolioStore>()(
           return { weightAlerts: next }
         }),
 
+      setLanguage: (lang) => set({ language: lang }),
+
+      addTickerNote: (ticker, note) =>
+        set((state) => {
+          const existing = state.tickerNotes[ticker] ?? []
+          return { tickerNotes: { ...state.tickerNotes, [ticker]: [...existing, note] } }
+        }),
+
+      deleteTickerNote: (ticker, index) =>
+        set((state) => {
+          const existing = state.tickerNotes[ticker] ?? []
+          return { tickerNotes: { ...state.tickerNotes, [ticker]: existing.filter((_, i) => i !== index) } }
+        }),
+
+      setTargetAllocation: (ticker, pct) =>
+        set((state) => {
+          const next = { ...state.targetAllocation }
+          if (pct === null) { delete next[ticker] } else { next[ticker] = pct }
+          return { targetAllocation: next }
+        }),
+
+      setWidgetHidden: (id, hidden) =>
+        set((state) => ({
+          hiddenWidgets: hidden
+            ? [...state.hiddenWidgets.filter((w) => w !== id), id]
+            : state.hiddenWidgets.filter((w) => w !== id),
+        })),
+
       // ── Reminders ───────────────────────────────────────────────────────────
 
       addReminder: (r) =>
@@ -288,7 +329,7 @@ export const usePortfolioStore = create<PortfolioStore>()(
     }),
     {
       name: 'stock-tracker-v1',
-      version: 3,
+      version: 4,
       migrate: (persistedState: unknown, version: number) => {
         const s = persistedState as Record<string, unknown>
         if (version < 2) {
@@ -315,6 +356,14 @@ export const usePortfolioStore = create<PortfolioStore>()(
             weightAlerts: {},
             reminders: [],
             pinnedNotes: [],
+          })
+        }
+        if (version < 4) {
+          Object.assign(s, {
+            language: 'ko',
+            tickerNotes: {},
+            targetAllocation: {},
+            hiddenWidgets: [],
           })
         }
         return s

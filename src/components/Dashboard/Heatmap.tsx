@@ -1,6 +1,7 @@
 import type { Position } from '../../types'
 import { formatPercent } from '../../utils/calculations'
 import { useCurrency } from '../../hooks/useCurrency'
+import { useI18n } from '../../hooks/useI18n'
 
 interface Props {
   positions: Position[]
@@ -20,11 +21,12 @@ function plToColor(pct: number, hasPrice: boolean): string {
 
 export function Heatmap({ positions }: Props) {
   const { displayCurrency, fmtAbbrev } = useCurrency()
+  const { t } = useI18n()
 
   if (positions.length === 0) {
     return (
       <div className="card p-5 flex items-center justify-center h-40">
-        <p className="text-slate-500 text-sm">데이터 없음</p>
+        <p className="text-slate-500 text-sm">{t('heatmap.noData')}</p>
       </div>
     )
   }
@@ -40,7 +42,7 @@ export function Heatmap({ positions }: Props) {
 
   return (
     <div className="card p-5">
-      <p className="text-sm font-semibold text-slate-300 mb-3">수익률 히트맵</p>
+      <p className="text-sm font-semibold text-slate-300 mb-3">{t('heatmap.title')}</p>
       <div className="flex flex-wrap gap-2">
         {sorted.map((pos) => {
           const value = pos.totalValue > 0 ? pos.totalValue : pos.totalCost
@@ -60,7 +62,7 @@ export function Heatmap({ positions }: Props) {
               key={pos.ticker}
               className={`rounded-lg p-2.5 flex flex-col justify-between cursor-default transition-transform hover:scale-105 ${colorClass}`}
               style={{ width: `${width}px`, minHeight: '72px' }}
-              title={`${pos.name}: ${hasPrice ? formatPercent(pct) : '시세 없음'}`}
+              title={`${pos.name}: ${hasPrice ? formatPercent(pct) : t('heatmap.noPrice')}`}
             >
               <div>
                 <p className="font-mono text-xs font-bold truncate">{pos.ticker}</p>

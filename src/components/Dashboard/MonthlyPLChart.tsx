@@ -3,6 +3,7 @@ import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, ReferenceLin
 import { usePortfolioStore } from '../../store/portfolioStore'
 import { computeRealizedPL, convertToDisplay } from '../../utils/calculations'
 import { useCurrency } from '../../hooks/useCurrency'
+import { useI18n } from '../../hooks/useI18n'
 
 function abbreviate(n: number, currency: 'KRW' | 'USD'): string {
   const abs = Math.abs(n)
@@ -44,6 +45,7 @@ export function MonthlyPLChart() {
   const exchangeRate = usePortfolioStore((s) => s.exchangeRate)
   const exchangeRateOverride = usePortfolioStore((s) => s.exchangeRateOverride)
   const { fmtAmount } = useCurrency()
+  const { t } = useI18n()
 
   const effectiveRate = exchangeRateOverride ?? exchangeRate
 
@@ -98,9 +100,9 @@ export function MonthlyPLChart() {
   if (data.length === 0) {
     return (
       <div className="card p-5">
-        <p className="text-sm font-semibold text-slate-300 mb-1">월별 실현 손익</p>
+        <p className="text-sm font-semibold text-slate-300 mb-1">{t('chart.monthlyTitle')}</p>
         <div className="h-[160px] flex items-center justify-center text-slate-600 text-sm">
-          매도/배당 내역이 없습니다.
+          {t('chart.monthlyEmpty')}
         </div>
       </div>
     )
@@ -108,7 +110,7 @@ export function MonthlyPLChart() {
 
   return (
     <div className="card p-5">
-      <p className="text-sm font-semibold text-slate-300 mb-4">월별 실현 손익</p>
+      <p className="text-sm font-semibold text-slate-300 mb-4">{t('chart.monthlyTitle')}</p>
       <ResponsiveContainer width="100%" height={160}>
         <BarChart data={data} margin={{ top: 4, right: 4, bottom: 0, left: 0 }}>
           <XAxis dataKey="month" tick={{ fill: '#64748b', fontSize: 11 }} axisLine={false} tickLine={false} />

@@ -13,6 +13,7 @@ export interface Trade {
   note: string
   createdAt: string     // ISO string
   exchangeRateAtPurchase?: number // USD/KRW rate at trade time (US stocks only)
+  commission?: number   // trading fee in native currency (added to cost basis for buys, deducted from proceeds for sells)
 }
 
 export interface Lot {

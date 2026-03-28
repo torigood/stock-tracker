@@ -5,28 +5,33 @@ import type { Position, TradeType } from '../../types'
 import { formatPercent, computeRealizedPL } from '../../utils/calculations'
 import { useCurrency } from '../../hooks/useCurrency'
 import { usePortfolioStore } from '../../store/portfolioStore'
+import { useI18n } from '../../hooks/useI18n'
 
 interface Props {
   position: Position | null
   onClose: () => void
 }
 
-const TRADE_TYPE_META: Record<TradeType, { label: string; cls: string }> = {
-  buy:      { label: '매수', cls: 'bg-emerald-900/60 text-emerald-300' },
-  sell:     { label: '매도', cls: 'bg-red-900/60 text-red-300' },
-  dividend: { label: '배당', cls: 'bg-amber-900/60 text-amber-300' },
-  split:    { label: '분할', cls: 'bg-cyan-900/60 text-cyan-300' },
+const TRADE_TYPE_CLS: Record<TradeType, string> = {
+  buy:      'bg-emerald-900/60 text-emerald-300',
+  sell:     'bg-red-900/60 text-red-300',
+  dividend: 'bg-amber-900/60 text-amber-300',
+  split:    'bg-cyan-900/60 text-cyan-300',
 }
 
 export function PositionDetail({ position, onClose }: Props) {
   const { fmtPrice, fmt, displayCurrency } = useCurrency()
-  const targetPrices   = usePortfolioStore((s) => s.targetPrices)
-  const setTargetPrice = usePortfolioStore((s) => s.setTargetPrice)
-  const sectors        = usePortfolioStore((s) => s.sectors)
-  const setSector      = usePortfolioStore((s) => s.setSector)
-  const taxRate        = usePortfolioStore((s) => s.taxRate)
-  const weightAlerts   = usePortfolioStore((s) => s.weightAlerts)
-  const setWeightAlert = usePortfolioStore((s) => s.setWeightAlert)
+  const { t } = useI18n()
+  const targetPrices    = usePortfolioStore((s) => s.targetPrices)
+  const setTargetPrice  = usePortfolioStore((s) => s.setTargetPrice)
+  const sectors         = usePortfolioStore((s) => s.sectors)
+  const setSector       = usePortfolioStore((s) => s.setSector)
+  const taxRate         = usePortfolioStore((s) => s.taxRate)
+  const weightAlerts    = usePortfolioStore((s) => s.weightAlerts)
+  const setWeightAlert  = usePortfolioStore((s) => s.setWeightAlert)
+  const tickerNotes     = usePortfolioStore((s) => s.tickerNotes)
+  const addTickerNote   = usePortfolioStore((s) => s.addTickerNote)
+  const deleteTickerNote = usePortfolioStore((s) => s.deleteTickerNote)
 
   const [targetInput, setTargetInput] = useState('')
   const [sectorInput, setSectorInput] = useState('')
@@ -35,6 +40,8 @@ export function PositionDetail({ position, onClose }: Props) {
   const [addPrice, setAddPrice] = useState('')
   const [weightInput, setWeightInput] = useState('')
   const [activeTab, setActiveTab] = useState<'overview' | 'trades' | 'tools'>('overview')
+  const [newNote, setNewNote] = useState('')
+  const [showNoteInput, setShowNoteInput] = useState(false)
 
   useEffect(() => {
     function handler(e: KeyboardEvent) { if (e.key === 'Escape') onClose() }
@@ -172,7 +179,11 @@ export function PositionDetail({ position, onClose }: Props) {
         {/* Tabs */}
         <div className="flex border-b border-slate-800 flex-shrink-0">
           {(['overview', 'trades', 'tools'] as const).map((tab) => {
-            const labels = { overview: '개요', trades: `거래(${trades.length})`, tools: '도구' }
+            const labels = {
+              overview: t('detail.overview'),
+              trades: t('detail.trades', { n: trades.length }),
+              tools: t('detail.tools'),
+            }
             return (
               <button
                 key={tab}
@@ -195,31 +206,31 @@ export function PositionDetail({ position, onClose }: Props) {
             <div>
               {/* Summary stats */}
               <div className="grid grid-cols-2 gap-px bg-slate-800 border-b border-slate-800">
-                <Stat label="보유수량" value={`${position.quantity.toLocaleString()}주`} />
-                <Stat label="평균단가" value={useKrw ? fmtKRW(position.avgPriceKRW) : fmtPrice(position.avgPrice, position.market, position.ticker)} />
-                <Stat label="현재가" value={position.currentPrice ? fmtPrice(position.currentPrice, position.market, position.ticker) : '–'} />
+                <Stat label={t('detail.quantity')} value={`${position.quantity.toLocaleString()}${t('common.shares')}`} />
+                <Stat label={t('detail.avgPrice')} value={useKrw ? fmtKRW(position.avgPriceKRW) : fmtPrice(position.avgPrice, position.market, position.ticker)} />
+                <Stat label={t('detail.currentPrice')} value={position.currentPrice ? fmtPrice(position.currentPrice, position.market, position.ticker) : '–'} />
                 <Stat
-                  label={`수익률${useKrw ? ' (원화)' : ''}`}
+                  label={useKrw ? t('detail.returnPctKRW') : t('detail.returnPct')}
                   value={position.currentPrice ? formatPercent(displayPLPct) : '–'}
                   valueClass={plColor}
                 />
-                <Stat label="총 투자금" value={useKrw ? fmtKRW(position.totalCostKRW) : fmt(position.totalCost, position.market, position.ticker)} />
+                <Stat label={t('detail.totalInvested')} value={useKrw ? fmtKRW(position.totalCostKRW) : fmt(position.totalCost, position.market, position.ticker)} />
                 <Stat
-                  label="평가손익"
+                  label={t('detail.unrealizedPL')}
                   value={position.currentPrice
                     ? (displayPL >= 0 ? '+' : '') + (useKrw ? fmtKRW(displayPL) : fmt(displayPL, position.market, position.ticker))
                     : '–'}
                   valueClass={plColor}
                 />
                 {position.currentPrice > 0 && (
-                  <Stat label="평가금액" value={useKrw ? fmtKRW(position.totalValueKRW) : fmt(position.totalValue, position.market, position.ticker)} />
+                  <Stat label={t('detail.currentValue')} value={useKrw ? fmtKRW(position.totalValueKRW) : fmt(position.totalValue, position.market, position.ticker)} />
                 )}
                 {position.dividendTotal > 0 && (
-                  <Stat label="배당 수령액" value={'+' + fmt(position.dividendTotal, position.market, position.ticker)} valueClass="text-amber-400" />
+                  <Stat label={t('detail.dividendReceived')} value={'+' + fmt(position.dividendTotal, position.market, position.ticker)} valueClass="text-amber-400" />
                 )}
                 {hasRealized && realizedRecord && (
                   <Stat
-                    label="실현 손익"
+                    label={t('detail.realizedPL')}
                     value={(realizedRecord.realizedPL >= 0 ? '+' : '') + fmt(realizedRecord.realizedPL, position.market, position.ticker)}
                     valueClass={realizedRecord.realizedPL >= 0 ? 'text-emerald-400' : 'text-red-400'}
                   />
@@ -229,7 +240,7 @@ export function PositionDetail({ position, onClose }: Props) {
               {/* Trade price chart */}
               {chartData.length >= 2 && position.currentPrice > 0 && (
                 <div className="px-5 py-4 border-b border-slate-800">
-                  <p className="text-xs font-medium text-slate-500 uppercase tracking-wider mb-3">매수/매도가 추이</p>
+                  <p className="text-xs font-medium text-slate-500 uppercase tracking-wider mb-3">{t('detail.tradePriceChart')}</p>
                   <ResponsiveContainer width="100%" height={100}>
                     <BarChart data={chartData} margin={{ top: 2, right: 2, bottom: 0, left: 0 }}>
                       <XAxis dataKey="date" tick={{ fill: '#64748b', fontSize: 10 }} axisLine={false} tickLine={false} />
@@ -242,7 +253,7 @@ export function PositionDetail({ position, onClose }: Props) {
                           const d = payload[0].payload as { date: string; price: number; type: string }
                           return (
                             <div className="bg-surface-900 border border-slate-700 rounded px-2 py-1.5 text-xs shadow-xl">
-                              <p className="text-slate-400">{d.date} · {d.type === 'buy' ? '매수' : '매도'}</p>
+                              <p className="text-slate-400">{d.date} · {d.type === 'buy' ? t('detail.buyLabel') : t('detail.sellLabel')}</p>
                               <p className="text-slate-200 font-mono">{fmtPrice(d.price, position.market, position.ticker)}</p>
                             </div>
                           )
@@ -255,19 +266,19 @@ export function PositionDetail({ position, onClose }: Props) {
                       </Bar>
                     </BarChart>
                   </ResponsiveContainer>
-                  <p className="text-[10px] text-slate-600 mt-1">— 현재가 {fmtPrice(position.currentPrice, position.market, position.ticker)}</p>
+                  <p className="text-[10px] text-slate-600 mt-1">— {t('detail.currentPrice')} {fmtPrice(position.currentPrice, position.market, position.ticker)}</p>
                 </div>
               )}
 
               {/* Target price */}
               <div className="px-5 py-4 border-b border-slate-800">
-                <p className="text-xs font-medium text-slate-500 uppercase tracking-wider mb-3">목표가</p>
+                <p className="text-xs font-medium text-slate-500 uppercase tracking-wider mb-3">{t('detail.targetPrice')}</p>
                 {hasTarget && targetPct != null && (
                   <div className="mb-3">
                     <div className="flex items-center justify-between text-xs text-slate-400 mb-1">
                       <span>{fmtPrice(targetPrice, position.market, position.ticker)}</span>
                       <span className={targetReached ? 'text-emerald-400 font-medium' : 'text-indigo-400'}>
-                        {Math.min(targetPct, 100).toFixed(1)}% {targetReached ? '✓ 도달' : ''}
+                        {Math.min(targetPct, 100).toFixed(1)}% {targetReached ? t('detail.targetReached') : ''}
                       </span>
                     </div>
                     <div className="h-2 bg-slate-700 rounded-full overflow-hidden">
@@ -278,35 +289,35 @@ export function PositionDetail({ position, onClose }: Props) {
                 )}
                 <div className="flex items-center gap-2">
                   <input type="number" value={targetInput} onChange={(e) => setTargetInput(e.target.value)}
-                    placeholder={`목표가 (${position.baseCurrency === 'KRW' ? '₩' : '$'})`}
+                    placeholder={`${t('detail.targetPrice')} (${position.baseCurrency === 'KRW' ? '₩' : '$'})`}
                     className="flex-1 bg-surface-800 border border-slate-700 rounded-lg px-3 py-1.5 text-sm text-slate-200 placeholder-slate-600 focus:outline-none focus:border-indigo-500" />
-                  <button onClick={handleSetTarget} className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-medium rounded-lg transition-colors">설정</button>
-                  {hasTarget && <button onClick={handleDeleteTarget} className="px-3 py-1.5 bg-slate-700 hover:bg-slate-600 text-slate-300 text-xs font-medium rounded-lg transition-colors">삭제</button>}
+                  <button onClick={handleSetTarget} className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-medium rounded-lg transition-colors">{t('detail.set')}</button>
+                  {hasTarget && <button onClick={handleDeleteTarget} className="px-3 py-1.5 bg-slate-700 hover:bg-slate-600 text-slate-300 text-xs font-medium rounded-lg transition-colors">{t('detail.delete')}</button>}
                 </div>
               </div>
 
               {/* Sector */}
               <div className="px-5 py-3 border-b border-slate-800">
                 <div className="flex items-center justify-between">
-                  <p className="text-xs font-medium text-slate-500 uppercase tracking-wider">섹터</p>
+                  <p className="text-xs font-medium text-slate-500 uppercase tracking-wider">{t('detail.sector')}</p>
                   {currentSector && !editingSector && (
-                    <button onClick={() => { setEditingSector(true); setSectorInput(currentSector) }} className="text-xs text-slate-500 hover:text-slate-300">수정</button>
+                    <button onClick={() => { setEditingSector(true); setSectorInput(currentSector) }} className="text-xs text-slate-500 hover:text-slate-300">{t('detail.edit')}</button>
                   )}
                 </div>
                 {editingSector ? (
                   <div className="flex items-center gap-2 mt-2">
                     <input autoFocus type="text" value={sectorInput} onChange={(e) => setSectorInput(e.target.value)}
                       onKeyDown={(e) => { if (e.key === 'Enter') handleSaveSector(); if (e.key === 'Escape') setEditingSector(false) }}
-                      placeholder="예: 기술주, 배당주, ETF..."
+                      placeholder={t('detail.sectorPlaceholder')}
                       className="flex-1 bg-surface-800 border border-slate-700 rounded-lg px-3 py-1.5 text-sm text-slate-200 placeholder-slate-600 focus:outline-none focus:border-indigo-500" />
-                    <button onClick={handleSaveSector} className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white text-xs rounded-lg transition-colors">저장</button>
-                    <button onClick={() => setEditingSector(false)} className="text-slate-400 text-xs px-1">취소</button>
+                    <button onClick={handleSaveSector} className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white text-xs rounded-lg transition-colors">{t('detail.save')}</button>
+                    <button onClick={() => setEditingSector(false)} className="text-slate-400 text-xs px-1">{t('detail.cancel')}</button>
                   </div>
                 ) : currentSector ? (
                   <p className="text-xs text-violet-300 mt-1">{currentSector}</p>
                 ) : (
                   <button onClick={() => setEditingSector(true)} className="text-xs text-slate-600 hover:text-slate-400 mt-1 transition-colors">
-                    + 섹터 추가
+                    {t('detail.addSector')}
                   </button>
                 )}
               </div>
@@ -318,30 +329,37 @@ export function PositionDetail({ position, onClose }: Props) {
             <div className="px-5 py-3">
               <div className="space-y-3">
                 {trades.map((trade) => {
-                  const typeMeta = TRADE_TYPE_META[trade.type]
+                  const typeCls = TRADE_TYPE_CLS[trade.type]
+                  const tradeLabels: Record<TradeType, string> = {
+                    buy: t('detail.buyLabel'), sell: t('detail.sellLabel'),
+                    dividend: t('form.dividend'), split: t('form.split'),
+                  }
                   const total = trade.quantity * trade.price
                   return (
                     <div key={trade.id} className="bg-surface-800 rounded-lg p-3.5 border border-slate-800">
                       <div className="flex items-center justify-between mb-2">
                         <div className="flex items-center gap-2">
-                          <span className={`text-xs font-bold px-2 py-0.5 rounded ${typeMeta.cls}`}>{typeMeta.label}</span>
+                          <span className={`text-xs font-bold px-2 py-0.5 rounded ${typeCls}`}>{tradeLabels[trade.type]}</span>
                           <span className="text-xs text-slate-500">{dayjs(trade.date).format('YYYY.MM.DD')}</span>
                         </div>
                       </div>
                       {trade.type === 'split' ? (
-                        <p className="text-xs font-mono text-slate-300">분할 비율 {trade.quantity}:1</p>
+                        <p className="text-xs font-mono text-slate-300">{t('history.splitRatio', { r: trade.quantity })}</p>
                       ) : trade.type === 'dividend' ? (
-                        <p className="text-xs font-mono text-amber-300">배당금 {fmtPrice(trade.price, trade.market, trade.ticker)}</p>
+                        <p className="text-xs font-mono text-amber-300">{t('detail.dividendAmount')} {fmtPrice(trade.price, trade.market, trade.ticker)}</p>
                       ) : (
                         <div className="grid grid-cols-3 gap-2 text-xs font-mono mb-2">
-                          <div><p className="text-slate-600 mb-0.5">수량</p><p className="text-slate-300">{trade.quantity.toLocaleString()}주</p></div>
-                          <div><p className="text-slate-600 mb-0.5">단가</p><p className="text-slate-300">{fmtPrice(trade.price, trade.market, trade.ticker)}</p></div>
-                          <div><p className="text-slate-600 mb-0.5">합계</p><p className="text-slate-300">{fmt(total, trade.market, trade.ticker)}</p></div>
+                          <div><p className="text-slate-600 mb-0.5">{t('detail.qty')}</p><p className="text-slate-300">{trade.quantity.toLocaleString()}{t('common.shares')}</p></div>
+                          <div><p className="text-slate-600 mb-0.5">{t('detail.price')}</p><p className="text-slate-300">{fmtPrice(trade.price, trade.market, trade.ticker)}</p></div>
+                          <div><p className="text-slate-600 mb-0.5">{t('detail.total')}</p><p className="text-slate-300">{fmt(total, trade.market, trade.ticker)}</p></div>
+                          {trade.commission != null && trade.commission > 0 && (
+                            <div className="col-span-3"><p className="text-slate-600 mb-0.5">{t('detail.commission')}</p><p className="text-slate-400">{fmtPrice(trade.commission, trade.market, trade.ticker)}</p></div>
+                          )}
                         </div>
                       )}
                       {trade.note && (
                         <div className="mt-2 pt-2 border-t border-slate-700">
-                          <p className="text-[11px] text-slate-600 mb-1">메모</p>
+                          <p className="text-[11px] text-slate-600 mb-1">{t('detail.memo')}</p>
                           <p className="text-xs text-slate-400 leading-relaxed whitespace-pre-wrap">{trade.note}</p>
                         </div>
                       )}
@@ -356,95 +374,139 @@ export function PositionDetail({ position, onClose }: Props) {
           {activeTab === 'tools' && (
             <div className="px-5 py-4 space-y-5">
 
-              {/* 추가 매수 평균단가 계산기 */}
+              {/* Additional buy simulator */}
               <div>
-                <p className="text-xs font-medium text-slate-500 uppercase tracking-wider mb-3">추가 매수 시뮬레이터</p>
+                <p className="text-xs font-medium text-slate-500 uppercase tracking-wider mb-3">{t('tools.simTitle')}</p>
                 <div className="grid grid-cols-2 gap-3 mb-3">
                   <div>
-                    <label className="label">추가 수량</label>
+                    <label className="label">{t('tools.addQty')}</label>
                     <input type="number" value={addQty} onChange={(e) => setAddQty(e.target.value)} placeholder="10" min="0" step="any" className="input-field font-mono" />
                   </div>
                   <div>
-                    <label className="label">추가 단가</label>
+                    <label className="label">{t('tools.addPrice')}</label>
                     <input type="number" value={addPrice} onChange={(e) => setAddPrice(e.target.value)} placeholder={position.baseCurrency === 'KRW' ? '70000' : '150'} min="0" step="any" className="input-field font-mono" />
                   </div>
                 </div>
                 {newAvgCalc ? (
                   <div className="bg-surface-800 rounded-lg p-3 space-y-2 text-xs font-mono border border-slate-700">
                     <div className="flex justify-between">
-                      <span className="text-slate-500">현재 평균단가</span>
+                      <span className="text-slate-500">{t('tools.currentAvg')}</span>
                       <span className="text-slate-300">{fmtPrice(position.avgPrice, position.market, position.ticker)}</span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-slate-500">추가 후 평균단가</span>
+                      <span className="text-slate-500">{t('tools.newAvg')}</span>
                       <span className="text-indigo-300 font-semibold">{fmtPrice(newAvgCalc.newAvg, position.market, position.ticker)}</span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-slate-500">총 보유수량</span>
-                      <span className="text-slate-300">{newAvgCalc.newQty.toLocaleString()}주</span>
+                      <span className="text-slate-500">{t('tools.totalQty')}</span>
+                      <span className="text-slate-300">{newAvgCalc.newQty.toLocaleString()}{t('common.shares')}</span>
                     </div>
                     <div className="flex justify-between border-t border-slate-700 pt-2">
-                      <span className="text-slate-500">총 투자금</span>
+                      <span className="text-slate-500">{t('tools.totalInvested')}</span>
                       <span className="text-slate-300">{fmt(newAvgCalc.newTotal, position.market, position.ticker)}</span>
                     </div>
                   </div>
                 ) : (
-                  <p className="text-xs text-slate-600">수량과 단가를 입력하면 평균단가를 계산합니다.</p>
+                  <p className="text-xs text-slate-600">{t('tools.simHint')}</p>
                 )}
               </div>
 
-              {/* 손익분기점 */}
+              {/* Break-even */}
               {breakEven && (
                 <div>
-                  <p className="text-xs font-medium text-slate-500 uppercase tracking-wider mb-3">손익분기점 ({Math.round(taxRate * 100)}% 세금 반영)</p>
+                  <p className="text-xs font-medium text-slate-500 uppercase tracking-wider mb-3">{t('tools.breakEvenTitle', { rate: Math.round(taxRate * 100) })}</p>
                   <div className="bg-surface-800 rounded-lg p-3 space-y-2 text-xs font-mono border border-slate-700">
                     <div className="flex justify-between">
-                      <span className="text-slate-500">현재 단가</span>
+                      <span className="text-slate-500">{t('tools.currentPriceLabel')}</span>
                       <span className="text-slate-300">{fmtPrice(position.currentPrice, position.market, position.ticker)}</span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-slate-500">평균 매수단가</span>
+                      <span className="text-slate-500">{t('tools.avgBuyPrice')}</span>
                       <span className="text-slate-300">{fmtPrice(position.avgPrice, position.market, position.ticker)}</span>
                     </div>
                     <div className="flex justify-between border-t border-slate-700 pt-2">
-                      <span className="text-slate-500">세후 손익</span>
+                      <span className="text-slate-500">{t('tools.profitAfterTax')}</span>
                       <span className={breakEven.profitAfterTax >= 0 ? 'text-emerald-400 font-semibold' : 'text-red-400 font-semibold'}>
                         {breakEven.profitAfterTax >= 0 ? '+' : ''}{fmt(breakEven.profitAfterTax, position.market, position.ticker)}
                       </span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-slate-500">세후 이익 실현가</span>
+                      <span className="text-slate-500">{t('tools.breakEvenPrice')}</span>
                       <span className="text-amber-300">{fmtPrice(breakEven.taxAdjBreakEven, position.market, position.ticker)}</span>
                     </div>
                   </div>
-                  <p className="text-[10px] text-slate-600 mt-1.5">세율은 설정에서 변경 가능합니다 (현재 {Math.round(taxRate * 100)}%)</p>
+                  <p className="text-[10px] text-slate-600 mt-1.5">{t('tools.taxRateNote', { rate: Math.round(taxRate * 100) })}</p>
                 </div>
               )}
 
-              {/* 비중 알림 */}
+              {/* Weight limit alert */}
               <div>
-                <p className="text-xs font-medium text-slate-500 uppercase tracking-wider mb-3">비중 한도 알림</p>
+                <p className="text-xs font-medium text-slate-500 uppercase tracking-wider mb-3">{t('tools.weightTitle')}</p>
                 <div className="flex items-center gap-2">
                   <input
                     type="number"
                     value={weightInput}
                     onChange={(e) => setWeightInput(e.target.value)}
-                    placeholder="예: 20 (20%)"
+                    placeholder={t('tools.weightPlaceholder')}
                     min="1"
                     max="100"
                     step="1"
                     className="flex-1 bg-surface-800 border border-slate-700 rounded-lg px-3 py-1.5 text-sm text-slate-200 placeholder-slate-600 focus:outline-none focus:border-indigo-500 font-mono"
                   />
                   <span className="text-slate-500 text-sm">%</span>
-                  <button onClick={handleSetWeightAlert} className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white text-xs rounded-lg transition-colors">설정</button>
+                  <button onClick={handleSetWeightAlert} className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white text-xs rounded-lg transition-colors">{t('detail.set')}</button>
                   {weightAlerts[position.ticker] != null && (
-                    <button onClick={() => { setWeightAlert(position!.ticker, null); setWeightInput('') }} className="text-slate-500 text-xs hover:text-red-400">삭제</button>
+                    <button onClick={() => { setWeightAlert(position!.ticker, null); setWeightInput('') }} className="text-slate-500 text-xs hover:text-red-400">{t('detail.delete')}</button>
                   )}
                 </div>
                 {weightAlerts[position.ticker] != null && (
                   <p className="text-xs text-indigo-400 mt-1.5">
-                    비중이 {weightAlerts[position.ticker]}% 초과 시 PositionTable에 경고 표시
+                    {t('tools.weightNote', { pct: String(weightAlerts[position.ticker]) })}
                   </p>
+                )}
+              </div>
+
+              {/* Ticker notes */}
+              <div>
+                <p className="text-xs font-medium text-slate-500 uppercase tracking-wider mb-3">{t('tools.notesTitle')}</p>
+                {(tickerNotes[position.ticker] ?? []).length > 0 && (
+                  <div className="space-y-2 mb-3">
+                    {(tickerNotes[position.ticker] ?? []).map((note, idx) => (
+                      <div key={idx} className="flex items-start gap-2 bg-surface-800 rounded-lg px-3 py-2 border border-slate-700 group">
+                        <p className="flex-1 text-xs text-slate-300 leading-relaxed whitespace-pre-wrap">{note}</p>
+                        <button
+                          onClick={() => deleteTickerNote(position!.ticker, idx)}
+                          className="text-slate-600 hover:text-red-400 text-xs flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity"
+                        >×</button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {showNoteInput ? (
+                  <div className="space-y-2">
+                    <textarea
+                      autoFocus
+                      value={newNote}
+                      onChange={(e) => setNewNote(e.target.value)}
+                      onKeyDown={(e) => { if (e.key === 'Escape') { setShowNoteInput(false); setNewNote('') } }}
+                      placeholder={t('tools.notePlaceholder')}
+                      rows={3}
+                      className="input-field resize-none text-xs"
+                    />
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => {
+                          if (newNote.trim()) { addTickerNote(position!.ticker, newNote.trim()); setNewNote(''); setShowNoteInput(false) }
+                        }}
+                        className="btn-primary text-xs px-3 py-1.5"
+                      >{t('notes.add')}</button>
+                      <button onClick={() => { setShowNoteInput(false); setNewNote('') }} className="text-xs text-slate-400 hover:text-slate-200 px-2">{t('notes.cancel')}</button>
+                    </div>
+                  </div>
+                ) : (
+                  <button onClick={() => setShowNoteInput(true)} className="text-xs text-slate-600 hover:text-indigo-400 transition-colors">
+                    {t('tools.addNote')}
+                  </button>
                 )}
               </div>
             </div>

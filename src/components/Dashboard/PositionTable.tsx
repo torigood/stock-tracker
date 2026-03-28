@@ -4,6 +4,7 @@ import { formatPercent, formatNumber } from '../../utils/calculations'
 import { RefreshIcon } from '../Layout/Icons'
 import { useCurrency } from '../../hooks/useCurrency'
 import { usePortfolioStore } from '../../store/portfolioStore'
+import { useI18n } from '../../hooks/useI18n'
 
 interface Props {
   positions: Position[]
@@ -20,6 +21,7 @@ export function PositionTable({ positions, loading, onRefresh, onSelect }: Props
   const setManualPrice = usePortfolioStore((s) => s.setManualPrice)
   const manualPrices = usePortfolioStore((s) => s.manualPrices)
   const weightAlerts = usePortfolioStore((s) => s.weightAlerts)
+  const { t } = useI18n()
 
   const [sortKey, setSortKey] = useState<SortKey>('totalValue')
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc')
@@ -89,15 +91,15 @@ export function PositionTable({ positions, loading, onRefresh, onSelect }: Props
       {/* Header */}
       <div className="flex items-center justify-between px-5 py-4 border-b border-slate-800">
         <div className="flex items-center gap-3">
-          <h2 className="text-base font-semibold text-slate-100">보유 종목</h2>
+          <h2 className="text-base font-semibold text-slate-100">{t('table.holdings')}</h2>
           {targetReachedCount > 0 && (
             <span className="text-[11px] px-2 py-0.5 bg-emerald-900/50 text-emerald-400 rounded-full font-medium">
-              목표 달성 {targetReachedCount}개
+              {t('table.targetAchieved', { n: targetReachedCount })}
             </span>
           )}
           {weightAlertCount > 0 && (
             <span className="text-[11px] px-2 py-0.5 bg-amber-900/50 text-amber-400 rounded-full font-medium">
-              ⚠ 비중 초과 {weightAlertCount}개
+              {t('table.weightExceeded', { n: weightAlertCount })}
             </span>
           )}
         </div>
@@ -107,26 +109,26 @@ export function PositionTable({ positions, loading, onRefresh, onSelect }: Props
           className="flex items-center gap-1.5 text-xs text-slate-400 hover:text-slate-200 transition-colors disabled:opacity-50"
         >
           <RefreshIcon className={loading ? 'animate-spin' : ''} />
-          <span>{loading ? '조회 중...' : '시세 갱신'}</span>
+          <span>{loading ? t('table.loading') : t('table.refresh')}</span>
         </button>
       </div>
 
       {positions.length === 0 ? (
         <div className="py-16 text-center text-slate-500 text-sm">
-          보유 종목이 없습니다. 거래를 입력해주세요.
+          {t('table.noHoldings')}
         </div>
       ) : (
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
               <tr className="text-xs text-slate-500 border-b border-slate-800">
-                <Th align="left">종목</Th>
-                <SortTh sortKey="quantity" current={sortKey} dir={sortDir} onSort={handleSort}>보유수량</SortTh>
-                <SortTh sortKey="avgPrice" current={sortKey} dir={sortDir} onSort={handleSort}>평균단가</SortTh>
-                <SortTh sortKey="currentPrice" current={sortKey} dir={sortDir} onSort={handleSort}>현재가</SortTh>
-                <SortTh sortKey="totalValue" current={sortKey} dir={sortDir} onSort={handleSort}>평가금액</SortTh>
-                <SortTh sortKey="profitLoss" current={sortKey} dir={sortDir} onSort={handleSort}>수익금</SortTh>
-                <SortTh sortKey="profitLossPercent" current={sortKey} dir={sortDir} onSort={handleSort}>수익률</SortTh>
+                <Th align="left">{t('table.stock')}</Th>
+                <SortTh sortKey="quantity" current={sortKey} dir={sortDir} onSort={handleSort}>{t('table.quantity')}</SortTh>
+                <SortTh sortKey="avgPrice" current={sortKey} dir={sortDir} onSort={handleSort}>{t('table.avgPrice')}</SortTh>
+                <SortTh sortKey="currentPrice" current={sortKey} dir={sortDir} onSort={handleSort}>{t('table.currentPrice')}</SortTh>
+                <SortTh sortKey="totalValue" current={sortKey} dir={sortDir} onSort={handleSort}>{t('table.value')}</SortTh>
+                <SortTh sortKey="profitLoss" current={sortKey} dir={sortDir} onSort={handleSort}>{t('table.pl')}</SortTh>
+                <SortTh sortKey="profitLossPercent" current={sortKey} dir={sortDir} onSort={handleSort}>{t('table.plPct')}</SortTh>
               </tr>
             </thead>
             <tbody>
@@ -172,7 +174,7 @@ export function PositionTable({ positions, loading, onRefresh, onSelect }: Props
                             <p className="font-medium text-slate-100 leading-tight">{pos.name}</p>
                             {targetReached && (
                               <span className="text-[10px] px-1.5 py-0.5 bg-emerald-900/60 text-emerald-400 rounded font-medium">
-                                🎯 목표
+                                🎯 {t('table.target')}
                               </span>
                             )}
                             {weightExceeded && (
@@ -222,14 +224,14 @@ export function PositionTable({ positions, loading, onRefresh, onSelect }: Props
                               onClick={() => { setEditingPrice(pos.ticker); setManualPriceInput('') }}
                               className="text-[10px] text-slate-600 hover:text-indigo-400 transition-colors"
                             >
-                              직접입력
+                              {t('table.manualInput')}
                             </button>
                           </div>
                         ) : (
                           <div>
                             <div className="flex items-center gap-1">
                               <span>{fmtPrice(pos.currentPrice, pos.market, pos.ticker)}</span>
-                              {isManual && <span className="text-[9px] text-amber-500 px-1 py-0.5 bg-amber-900/30 rounded">수동</span>}
+                              {isManual && <span className="text-[9px] text-amber-500 px-1 py-0.5 bg-amber-900/30 rounded">{t('table.manual')}</span>}
                             </div>
                             {hasTarget && pos.currentPrice > 0 && targetPct != null && (
                               <div className="mt-1">

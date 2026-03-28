@@ -3,6 +3,7 @@ import dayjs from 'dayjs'
 import type { Market, TradeType, TickerEntry } from '../../types'
 import { searchTickers } from '../../data/tickerMap'
 import { usePortfolioStore } from '../../store/portfolioStore'
+import { useI18n } from '../../hooks/useI18n'
 
 interface Props {
   onClose?: () => void
@@ -27,16 +28,17 @@ async function yahooFetch(symbol: string, period1?: number, period2?: number): P
   return typeof price === 'number' ? price : null
 }
 
-const TAB_META: Record<TradeType, { label: string; activeClass: string }> = {
-  buy: { label: '매수', activeClass: 'bg-emerald-600 text-white' },
-  sell: { label: '매도', activeClass: 'bg-red-600 text-white' },
-  dividend: { label: '배당', activeClass: 'bg-amber-600 text-white' },
-  split: { label: '분할', activeClass: 'bg-cyan-600 text-white' },
+const TAB_ACTIVE_CLASS: Record<TradeType, string> = {
+  buy: 'bg-emerald-600 text-white',
+  sell: 'bg-red-600 text-white',
+  dividend: 'bg-amber-600 text-white',
+  split: 'bg-cyan-600 text-white',
 }
 
 export function TradeForm({ onClose }: Props) {
   const addTrade = usePortfolioStore((s) => s.addTrade)
   const storeExchangeRate = usePortfolioStore((s) => s.exchangeRate)
+  const { t } = useI18n()
 
   const [tab, setTab] = useState<TradeType>('buy')
   const [ticker, setTicker] = useState('')
@@ -51,6 +53,7 @@ export function TradeForm({ onClose }: Props) {
   const [purchaseRate, setPurchaseRate] = useState(String(storeExchangeRate))
   const [date, setDate] = useState(dayjs().format('YYYY-MM-DD'))
   const [note, setNote] = useState('')
+  const [commission, setCommission] = useState('')
   const [suggestions, setSuggestions] = useState<TickerEntry[]>([])
   const [showSuggestions, setShowSuggestions] = useState(false)
   const [submitted, setSubmitted] = useState(false)
@@ -192,6 +195,7 @@ export function TradeForm({ onClose }: Props) {
     setPrice('')
     setTotalAmount('')
     setNote('')
+    setCommission('')
     setDate(dayjs().format('YYYY-MM-DD'))
     setPriceError('')
     setLastEdited('qty')
@@ -217,8 +221,9 @@ export function TradeForm({ onClose }: Props) {
 
       const isUsdTrade = market === 'US' || (market === 'ETF' && !/^\d+$/.test(ticker))
       const rateAtPurchase = isUsdTrade ? parseFloat(purchaseRate) || storeExchangeRate : undefined
+      const commissionVal = parseFloat(commission) || undefined
 
-      addTrade({ ticker, name, market, type: tab, quantity: finalQty, price: nativePrice, date, note, exchangeRateAtPurchase: rateAtPurchase })
+      addTrade({ ticker, name, market, type: tab, quantity: finalQty, price: nativePrice, date, note, exchangeRateAtPurchase: rateAtPurchase, commission: commissionVal })
     }
 
     resetForm()
@@ -250,7 +255,13 @@ export function TradeForm({ onClose }: Props) {
       : `$${total.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
   })()
 
-  const submitLabel = submitted ? '✓ 입력 완료!' : { buy: '매수 기록', sell: '매도 기록', dividend: '배당 기록', split: '분할 기록' }[tab]
+  const tabLabels: Record<TradeType, string> = {
+    buy: t('form.buy'), sell: t('form.sell'), dividend: t('form.dividend'), split: t('form.split'),
+  }
+  const submitLabels: Record<TradeType, string> = {
+    buy: t('form.submitBuy'), sell: t('form.submitSell'), dividend: t('form.submitDividend'), split: t('form.submitSplit'),
+  }
+  const submitLabel = submitted ? t('form.submitted') : submitLabels[tab]
   const submitClass = submitted
     ? 'bg-emerald-700 text-emerald-100'
     : tab === 'buy' ? 'bg-emerald-600 hover:bg-emerald-500 text-white'
@@ -261,7 +272,7 @@ export function TradeForm({ onClose }: Props) {
   return (
     <div className="card p-6 max-w-lg w-full mx-auto">
       <div className="flex items-center justify-between mb-5">
-        <h2 className="text-base font-semibold text-slate-100">거래 입력</h2>
+        <h2 className="text-base font-semibold text-slate-100">{t('form.title')}</h2>
         {onClose && (
           <button onClick={onClose} className="text-slate-500 hover:text-slate-300 text-xl leading-none">
             ×
@@ -271,16 +282,16 @@ export function TradeForm({ onClose }: Props) {
 
       {/* Trade type tabs */}
       <div className="flex gap-1 p-1 bg-surface-900 rounded-lg mb-5">
-        {(Object.keys(TAB_META) as TradeType[]).map((t) => (
+        {(Object.keys(TAB_ACTIVE_CLASS) as TradeType[]).map((tabKey) => (
           <button
-            key={t}
+            key={tabKey}
             type="button"
-            onClick={() => setTab(t)}
+            onClick={() => setTab(tabKey)}
             className={`flex-1 py-1.5 rounded-md text-sm font-medium transition-colors ${
-              tab === t ? TAB_META[t].activeClass : 'text-slate-400 hover:text-slate-200'
+              tab === tabKey ? TAB_ACTIVE_CLASS[tabKey] : 'text-slate-400 hover:text-slate-200'
             }`}
           >
-            {TAB_META[t].label}
+            {tabLabels[tabKey]}
           </button>
         ))}
       </div>
@@ -289,7 +300,7 @@ export function TradeForm({ onClose }: Props) {
 
         {/* Ticker search */}
         <div ref={sugRef} className="relative">
-          <label className="label">티커 검색</label>
+          <label className="label">{t('form.tickerSearch')}</label>
           <input
             type="text"
             value={ticker}
@@ -328,33 +339,33 @@ export function TradeForm({ onClose }: Props) {
         {/* Name + Market */}
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <label className="label">종목명</label>
+            <label className="label">{t('form.stockName')}</label>
             <input
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="삼성전자"
+              placeholder="Samsung"
               className="input-field"
               required
             />
           </div>
           <div>
-            <label className="label">시장</label>
+            <label className="label">{t('form.market')}</label>
             <select
               value={market}
               onChange={(e) => setMarket(e.target.value as Market)}
               className="input-field"
             >
-              <option value="US">US (미국)</option>
-              <option value="KRX">KRX (국내)</option>
-              <option value="ETF">ETF</option>
+              <option value="US">{t('form.marketUS')}</option>
+              <option value="KRX">{t('form.marketKRX')}</option>
+              <option value="ETF">{t('form.marketETF')}</option>
             </select>
           </div>
         </div>
 
         {/* Date */}
         <div>
-          <label className="label">거래일</label>
+          <label className="label">{t('form.tradeDate')}</label>
           <input
             type="date"
             value={date}
@@ -367,25 +378,25 @@ export function TradeForm({ onClose }: Props) {
         {/* ── Split: ratio only ─────────────────────────────────────── */}
         {tab === 'split' && (
           <div>
-            <label className="label">분할 비율</label>
+            <label className="label">{t('form.splitRatio')}</label>
             <input
               type="number"
               value={quantity}
               onChange={(e) => setQuantity(e.target.value)}
-              placeholder="2 (2:1 분할 = 주식 수 2배)"
+              placeholder={t('form.splitRatioHint')}
               min="1.01"
               step="any"
               className="input-field font-mono"
               required
             />
-            <p className="text-xs text-slate-500 mt-1">예: 2 → 보유 주식 수 2배, 단가 1/2로 조정</p>
+            <p className="text-xs text-slate-500 mt-1">{t('form.splitRatioHelp')}</p>
           </div>
         )}
 
         {/* ── Dividend: amount only ─────────────────────────────────── */}
         {tab === 'dividend' && (
           <div>
-            <label className="label">배당금 총액</label>
+            <label className="label">{t('form.dividendTotal')}</label>
             <input
               type="number"
               value={price}
@@ -396,7 +407,7 @@ export function TradeForm({ onClose }: Props) {
               className="input-field font-mono"
               required
             />
-            <p className="text-xs text-slate-500 mt-1">받은 배당금 총액 (실현 손익에 합산됩니다)</p>
+            <p className="text-xs text-slate-500 mt-1">{t('form.dividendHelp')}</p>
           </div>
         )}
 
@@ -407,7 +418,7 @@ export function TradeForm({ onClose }: Props) {
             <div>
               <div className="flex items-center justify-between mb-1">
                 <div className="flex items-center gap-2">
-                  <label className="label !mb-0">주당 가격</label>
+                  <label className="label !mb-0">{t('form.pricePerShare')}</label>
                   {showUnitToggle && (
                     <button
                       type="button"
@@ -433,7 +444,7 @@ export function TradeForm({ onClose }: Props) {
                   disabled={!ticker || fetchingPrice}
                   className="text-[11px] text-indigo-400 hover:text-indigo-300 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
                 >
-                  {fetchingPrice ? '조회 중...' : `${date === dayjs().format('YYYY-MM-DD') ? '현재가' : '해당일 시세'} 불러오기`}
+                  {fetchingPrice ? t('form.fetching') : (date === dayjs().format('YYYY-MM-DD') ? t('form.fetchPrice') : t('form.fetchHistoricalPrice'))}
                 </button>
               </div>
               <input
@@ -451,14 +462,14 @@ export function TradeForm({ onClose }: Props) {
                   <span className="text-slate-600 ml-1">(1 USD = ₩{exchangeRate.toLocaleString()})</span>
                 </p>
               )}
-              {priceError && <p className="text-xs text-red-400 mt-1">{priceError}</p>}
+              {priceError && <p className="text-xs text-red-400 mt-1">{priceError.includes('찾을') ? t('form.priceNotFound') : priceError.includes('실패') ? t('form.fetchFailed') : priceError}</p>}
             </div>
 
             {/* Qty + Amount */}
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="label">
-                  수량 (주){lastEdited === 'amount' && quantity && <span className="text-indigo-400 ml-1">← 자동</span>}
+                  {t('form.shares')}{lastEdited === 'amount' && quantity && <span className="text-indigo-400 ml-1">{t('form.autoLabel')}</span>}
                 </label>
                 <input
                   type="number"
@@ -473,7 +484,7 @@ export function TradeForm({ onClose }: Props) {
               </div>
               <div>
                 <label className="label">
-                  총 금액 ({unitLabel}){lastEdited === 'qty' && totalAmount && <span className="text-indigo-400 ml-1">← 자동</span>}
+                  {t('form.totalAmount')} ({unitLabel}){lastEdited === 'qty' && totalAmount && <span className="text-indigo-400 ml-1">{t('form.autoLabel')}</span>}
                 </label>
                 <input
                   type="number"
@@ -490,7 +501,7 @@ export function TradeForm({ onClose }: Props) {
             {/* Total preview */}
             {totalPreview && (
               <div className="bg-surface-950 rounded-lg px-4 py-2.5 flex items-center justify-between text-sm">
-                <span className="text-slate-500">거래 금액</span>
+                <span className="text-slate-500">{t('form.tradeAmount')}</span>
                 <span className="font-mono text-slate-200 font-medium">{totalPreview}</span>
               </div>
             )}
@@ -499,8 +510,8 @@ export function TradeForm({ onClose }: Props) {
             {(market === 'US' || (market === 'ETF' && !/^\d+$/.test(ticker))) && (
               <div>
                 <div className="flex items-center justify-between mb-1">
-                  <label className="label !mb-0">매수 당시 환율 (USD→KRW)</label>
-                  {fetchingRate && <span className="text-[11px] text-slate-500">조회 중...</span>}
+                  <label className="label !mb-0">{t('form.purchaseRate')}</label>
+                  {fetchingRate && <span className="text-[11px] text-slate-500">{t('form.fetchingRate')}</span>}
                 </div>
                 <input
                   type="number"
@@ -511,7 +522,7 @@ export function TradeForm({ onClose }: Props) {
                   step="1"
                   className="input-field font-mono"
                 />
-                <p className="text-xs text-slate-500 mt-1">원화 기준 수익률 계산에 사용됩니다</p>
+                <p className="text-xs text-slate-500 mt-1">{t('form.rateHelp')}</p>
               </div>
             )}
           </>
@@ -519,14 +530,36 @@ export function TradeForm({ onClose }: Props) {
 
         {/* Note */}
         <div>
-          <label className="label">메모 (선택)</label>
+          <label className="label">{t('form.note')}</label>
           <textarea
             value={note}
             onChange={(e) => setNote(e.target.value)}
-            placeholder={tab === 'dividend' ? '배당 내용, 세금 등...' : tab === 'split' ? '분할 사유 등...' : '왜 매수했는지, 당시 상황, 목표가 등...'}
+            placeholder={
+              tab === 'dividend' ? t('form.notePlaceholderDividend')
+              : tab === 'split' ? t('form.notePlaceholderSplit')
+              : tab === 'sell' ? t('form.notePlaceholderSell')
+              : t('form.notePlaceholderBuy')
+            }
             rows={2}
             className="input-field resize-none"
           />
+
+          {/* Commission (buy/sell only) */}
+          {isBuySell && (
+            <div>
+              <label className="label">{t('form.commission')}</label>
+              <input
+                type="number"
+                value={commission}
+                onChange={(e) => setCommission(e.target.value)}
+                placeholder="0"
+                min="0"
+                step="any"
+                className="input-field font-mono"
+              />
+              <p className="text-xs text-slate-500 mt-1">{t('form.commissionHelp')}</p>
+            </div>
+          )}
         </div>
 
         {/* Submit */}

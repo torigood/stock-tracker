@@ -4,24 +4,21 @@ import type { Trade, Market, TradeType } from '../../types'
 import { usePortfolioStore } from '../../store/portfolioStore'
 import { formatPrice } from '../../utils/calculations'
 import { TrashIcon, EditIcon } from '../Layout/Icons'
+import { useI18n } from '../../hooks/useI18n'
+import type { TranslationKey } from '../../i18n/translations'
 
-const TYPE_META: Record<TradeType, { label: string; cls: string }> = {
-  buy: { label: '매수', cls: 'bg-emerald-900/60 text-emerald-300' },
-  sell: { label: '매도', cls: 'bg-red-900/60 text-red-300' },
-  dividend: { label: '배당', cls: 'bg-amber-900/60 text-amber-300' },
-  split: { label: '분할', cls: 'bg-cyan-900/60 text-cyan-300' },
+function TypeMeta(t: (key: TranslationKey, vars?: Record<string, string | number>) => string): Record<TradeType, { label: string; cls: string }> {
+  return {
+    buy:      { label: t('form.buy'),      cls: 'bg-emerald-900/60 text-emerald-300' },
+    sell:     { label: t('form.sell'),     cls: 'bg-red-900/60 text-red-300' },
+    dividend: { label: t('form.dividend'), cls: 'bg-amber-900/60 text-amber-300' },
+    split:    { label: t('form.split'),    cls: 'bg-cyan-900/60 text-cyan-300' },
+  }
 }
-
-const TYPE_FILTER: { key: TradeType | 'all'; label: string }[] = [
-  { key: 'all', label: '전체' },
-  { key: 'buy', label: '매수' },
-  { key: 'sell', label: '매도' },
-  { key: 'dividend', label: '배당' },
-  { key: 'split', label: '분할' },
-]
 
 export function TradeHistory() {
   const { trades, updateTrade, deleteTrade } = usePortfolioStore()
+  const { t } = useI18n()
   const [filterTicker, setFilterTicker] = useState('')
   const [filterType, setFilterType] = useState<TradeType | 'all'>('all')
   const [filterFrom, setFilterFrom] = useState('')
@@ -29,19 +26,28 @@ export function TradeHistory() {
   const [editingNote, setEditingNote] = useState<string | null>(null)
   const [noteText, setNoteText] = useState('')
 
+  const TYPE_META = TypeMeta(t)
+  const TYPE_FILTER: { key: TradeType | 'all'; label: string }[] = [
+    { key: 'all', label: t('history.all') },
+    { key: 'buy', label: t('form.buy') },
+    { key: 'sell', label: t('form.sell') },
+    { key: 'dividend', label: t('form.dividend') },
+    { key: 'split', label: t('form.split') },
+  ]
+
   const sorted = [...trades].sort(
     (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
   )
 
-  const filtered = sorted.filter((t) => {
-    if (filterTicker && !t.ticker.toLowerCase().includes(filterTicker.toLowerCase()) && !t.name.toLowerCase().includes(filterTicker.toLowerCase())) return false
-    if (filterType !== 'all' && t.type !== filterType) return false
-    if (filterFrom && t.date < filterFrom) return false
-    if (filterTo && t.date > filterTo) return false
+  const filtered = sorted.filter((trade) => {
+    if (filterTicker && !trade.ticker.toLowerCase().includes(filterTicker.toLowerCase()) && !trade.name.toLowerCase().includes(filterTicker.toLowerCase())) return false
+    if (filterType !== 'all' && trade.type !== filterType) return false
+    if (filterFrom && trade.date < filterFrom) return false
+    if (filterTo && trade.date > filterTo) return false
     return true
   })
 
-  const tickers = Array.from(new Set(trades.map((t) => t.ticker))).sort()
+  const tickers = Array.from(new Set(trades.map((trade) => trade.ticker))).sort()
 
   function clearFilters() {
     setFilterTicker('')
@@ -63,7 +69,7 @@ export function TradeHistory() {
   }
 
   function handleDelete(id: string) {
-    if (confirm('이 거래를 삭제하시겠습니까?')) {
+    if (confirm(t('history.confirmDelete'))) {
       deleteTrade(id)
     }
   }
@@ -99,7 +105,7 @@ export function TradeHistory() {
           type="text"
           value={filterTicker}
           onChange={(e) => setFilterTicker(e.target.value)}
-          placeholder="종목 검색..."
+          placeholder={t('history.searchPlaceholder')}
           className="input-field max-w-xs"
         />
         <div className="flex items-center gap-1.5 text-xs text-slate-500">
@@ -119,7 +125,7 @@ export function TradeHistory() {
         </div>
         {hasFilter && (
           <button onClick={clearFilters} className="text-xs text-slate-400 hover:text-slate-200">
-            초기화
+            {t('history.reset')}
           </button>
         )}
         <span className="text-xs text-slate-500 ml-auto">{filtered.length}건</span>
@@ -134,17 +140,17 @@ export function TradeHistory() {
               !filterTicker ? 'bg-indigo-600 text-white' : 'bg-slate-800 text-slate-400 hover:bg-slate-700'
             }`}
           >
-            전체
+            {t('history.all')}
           </button>
-          {tickers.map((t) => (
+          {tickers.map((ticker) => (
             <button
-              key={t}
-              onClick={() => setFilterTicker(t === filterTicker ? '' : t)}
+              key={ticker}
+              onClick={() => setFilterTicker(ticker === filterTicker ? '' : ticker)}
               className={`text-xs px-2.5 py-1 rounded-full transition-colors font-mono ${
-                filterTicker === t ? 'bg-indigo-600 text-white' : 'bg-slate-800 text-slate-400 hover:bg-slate-700'
+                filterTicker === ticker ? 'bg-indigo-600 text-white' : 'bg-slate-800 text-slate-400 hover:bg-slate-700'
               }`}
             >
-              {t}
+              {ticker}
             </button>
           ))}
         </div>
@@ -153,7 +159,7 @@ export function TradeHistory() {
       {/* Trade list */}
       {filtered.length === 0 ? (
         <div className="card py-16 text-center text-slate-500 text-sm">
-          {trades.length === 0 ? '거래 내역이 없습니다. 거래를 입력해주세요.' : '검색 결과가 없습니다.'}
+          {trades.length === 0 ? t('history.noTrades') : t('history.noResults')}
         </div>
       ) : (
         <div className="space-y-2">
@@ -180,20 +186,23 @@ export function TradeHistory() {
 
                       <div className="flex items-center gap-3 mt-1 text-xs text-slate-400 font-mono flex-wrap">
                         {trade.type === 'split' ? (
-                          <span>분할 비율 {trade.quantity}:1</span>
+                          <span>{t('history.splitRatio', { r: trade.quantity })}</span>
                         ) : trade.type === 'dividend' ? (
-                          <span>배당금 {formatPrice(trade.price, trade.market)}</span>
+                          <span>{t('history.dividendLabel')} {formatPrice(trade.price, trade.market)}</span>
                         ) : (
                           <>
                             <span>{formatPrice(trade.price, trade.market)} × {trade.quantity.toLocaleString()}</span>
                             <span className="text-slate-500">→</span>
                             <span className="text-slate-300">{formatPrice(total, trade.market)}</span>
+                            {trade.commission != null && trade.commission > 0 && (
+                              <span className="text-slate-600">fee: {formatPrice(trade.commission, trade.market)}</span>
+                            )}
                           </>
                         )}
                       </div>
 
                       <p className="text-xs text-slate-600 mt-1">
-                        {dayjs(trade.date).format('YYYY년 MM월 DD일')}
+                        {dayjs(trade.date).format('YYYY.MM.DD')}
                       </p>
                     </div>
                   </div>
@@ -202,14 +211,13 @@ export function TradeHistory() {
                     <button
                       onClick={() => startEditNote(trade)}
                       className="p-1.5 text-slate-500 hover:text-slate-300 hover:bg-slate-700 rounded transition-colors"
-                      title="노트 편집"
+                      title={t('detail.memo')}
                     >
                       <EditIcon />
                     </button>
                     <button
                       onClick={() => handleDelete(trade.id)}
                       className="p-1.5 text-slate-500 hover:text-red-400 hover:bg-red-900/20 rounded transition-colors"
-                      title="삭제"
                     >
                       <TrashIcon />
                     </button>
@@ -223,15 +231,15 @@ export function TradeHistory() {
                       onChange={(e) => setNoteText(e.target.value)}
                       rows={2}
                       className="input-field resize-none text-xs"
-                      placeholder="매매 노트..."
+                      placeholder={t('history.tradeMemo')}
                       autoFocus
                     />
                     <div className="flex gap-2 mt-2">
                       <button onClick={() => saveNote(trade.id)} className="text-xs bg-indigo-600 hover:bg-indigo-500 text-white px-3 py-1 rounded transition-colors">
-                        저장
+                        {t('history.save')}
                       </button>
                       <button onClick={() => setEditingNote(null)} className="text-xs text-slate-400 hover:text-slate-200 px-3 py-1 rounded transition-colors">
-                        취소
+                        {t('history.cancel')}
                       </button>
                     </div>
                   </div>

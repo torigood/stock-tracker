@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import type { PinnedNote } from '../../types'
 import { usePortfolioStore } from '../../store/portfolioStore'
+import { useI18n } from '../../hooks/useI18n'
 
 const NOTE_COLORS: { key: PinnedNote['color']; bg: string; border: string; text: string }[] = [
   { key: 'yellow', bg: 'bg-yellow-900/30', border: 'border-yellow-700/40', text: 'text-yellow-200' },
@@ -14,6 +15,7 @@ export function PinnedNotes() {
   const addPinnedNote = usePortfolioStore((s) => s.addPinnedNote)
   const updatePinnedNote = usePortfolioStore((s) => s.updatePinnedNote)
   const deletePinnedNote = usePortfolioStore((s) => s.deletePinnedNote)
+  const { t } = useI18n()
 
   const [showAdd, setShowAdd] = useState(false)
   const [newText, setNewText] = useState('')
@@ -45,7 +47,7 @@ export function PinnedNotes() {
           onClick={() => setShowAdd(true)}
           className="text-xs text-slate-600 hover:text-indigo-400 transition-colors"
         >
-          + 고정 메모 추가
+          {t('notes.addBtn')}
         </button>
       </div>
     )
@@ -73,8 +75,8 @@ export function PinnedNotes() {
                       className="w-full bg-transparent text-sm text-slate-200 resize-none focus:outline-none"
                     />
                     <div className="flex gap-2 mt-2">
-                      <button onClick={() => saveEdit(note.id)} className="text-xs text-indigo-400 hover:text-indigo-300">저장</button>
-                      <button onClick={() => setEditingId(null)} className="text-xs text-slate-500">취소</button>
+                      <button onClick={() => saveEdit(note.id)} className="text-xs text-indigo-400 hover:text-indigo-300">{t('notes.save')}</button>
+                      <button onClick={() => setEditingId(null)} className="text-xs text-slate-500">{t('notes.cancel')}</button>
                     </div>
                   </div>
                 ) : (
@@ -105,7 +107,7 @@ export function PinnedNotes() {
       {showAdd ? (
         <div className="card p-4 space-y-3">
           <div className="flex items-center justify-between">
-            <p className="text-xs font-medium text-slate-400 uppercase tracking-wide">새 메모</p>
+            <p className="text-xs font-medium text-slate-400 uppercase tracking-wide">{t('notes.newTitle')}</p>
             <div className="flex gap-1.5">
               {NOTE_COLORS.map((c) => (
                 <button
@@ -122,19 +124,19 @@ export function PinnedNotes() {
             autoFocus
             value={newText}
             onChange={(e) => setNewText(e.target.value)}
-            placeholder="메모 내용..."
+            placeholder={t('notes.placeholder')}
             rows={3}
             className="input-field resize-none"
           />
           <div className="flex gap-2">
-            <button onClick={handleAdd} className="btn-primary text-xs px-3 py-1.5">추가</button>
-            <button onClick={() => setShowAdd(false)} className="text-xs text-slate-400 hover:text-slate-200 px-2">취소</button>
+            <button onClick={handleAdd} className="btn-primary text-xs px-3 py-1.5">{t('notes.add')}</button>
+            <button onClick={() => setShowAdd(false)} className="text-xs text-slate-400 hover:text-slate-200 px-2">{t('notes.cancel')}</button>
           </div>
         </div>
       ) : (
         <div className="flex justify-end">
           <button onClick={() => setShowAdd(true)} className="text-xs text-slate-600 hover:text-indigo-400 transition-colors">
-            + 고정 메모 추가
+            {t('notes.addBtn')}
           </button>
         </div>
       )}

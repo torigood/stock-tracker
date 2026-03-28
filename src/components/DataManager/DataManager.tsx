@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react'
 import dayjs from 'dayjs'
 import { usePortfolioStore } from '../../store/portfolioStore'
+import { useI18n } from '../../hooks/useI18n'
 import type { Trade } from '../../types'
 
 interface Props {
@@ -14,12 +15,13 @@ export function DataManager({ open, onClose }: Props) {
   const portfolioData = usePortfolioStore((s) => s.portfolioData)
   const activePortfolioId = usePortfolioStore((s) => s.activePortfolioId)
   const importTrades = usePortfolioStore((s) => s.importTrades)
+  const { t } = useI18n()
+
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const csvInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
-    function handler(e: KeyboardEvent) {
-      if (e.key === 'Escape') onClose()
-    }
+    function handler(e: KeyboardEvent) { if (e.key === 'Escape') onClose() }
     document.addEventListener('keydown', handler)
     return () => document.removeEventListener('keydown', handler)
   }, [onClose])
@@ -32,7 +34,6 @@ export function DataManager({ open, onClose }: Props) {
 
   if (!open) return null
 
-  // Get all trades across all portfolios
   function getAllTrades(): { trade: Trade; portfolioName: string }[] {
     const result: { trade: Trade; portfolioName: string }[] = []
     for (const portfolio of portfolios) {
@@ -47,14 +48,12 @@ export function DataManager({ open, onClose }: Props) {
 
   function handleExportJSON() {
     const dateStr = dayjs().format('YYYYMMDD')
-    // Export full portfolio data for complete backup
     const backup = {
       version: 2,
       exportedAt: new Date().toISOString(),
       portfolios,
       portfolioData: {
         ...portfolioData,
-        // Ensure active portfolio data is up-to-date
         [activePortfolioId]: { trades, targetPrices: portfolioData[activePortfolioId]?.targetPrices ?? {} },
       },
     }
@@ -68,87 +67,107 @@ export function DataManager({ open, onClose }: Props) {
     URL.revokeObjectURL(url)
   }
 
-  function handleImportJSON() {
-    fileInputRef.current?.click()
-  }
+  function handleImportJSON() { fileInputRef.current?.click() }
+  function handleImportCSV() { csvInputRef.current?.click() }
 
   function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
     if (!file) return
-
     const reader = new FileReader()
     reader.onload = (ev) => {
       try {
         const raw = ev.target?.result as string
         const parsed = JSON.parse(raw) as unknown
-
-        if (typeof parsed !== 'object' || parsed === null) {
-          alert('올바른 백업 파일이 아닙니다.')
-          return
-        }
-
+        if (typeof parsed !== 'object' || parsed === null) { alert(t('data.invalidFile')); return }
         const obj = parsed as Record<string, unknown>
-
-        // Support both v1 (trades array) and v2 (portfolios) format
         if ('trades' in obj && Array.isArray(obj.trades)) {
-          // Legacy v1 format
           const incoming = obj.trades as Trade[]
-          if (!window.confirm(
-            `총 ${incoming.length}건의 거래 데이터를 가져옵니다.\n현재 포트폴리오의 데이터(${trades.length}건)가 덮어씌워집니다.\n계속하시겠습니까?`
-          )) return
-          importTrades(incoming)
-          onClose()
+          if (!window.confirm(t('data.confirmImport', { n: incoming.length, t: trades.length }))) return
+          importTrades(incoming); onClose()
         } else if ('portfolioData' in obj) {
-          // v2 format — only import current portfolio's trades
           const pdata = obj.portfolioData as Record<string, { trades: Trade[] }>
           const firstKey = Object.keys(pdata)[0]
           const incoming = firstKey ? (pdata[firstKey]?.trades ?? []) : []
-          if (!window.confirm(
-            `총 ${incoming.length}건의 거래 데이터를 가져옵니다.\n현재 포트폴리오의 데이터(${trades.length}건)가 덮어씌워집니다.\n계속하시겠습니까?`
-          )) return
-          importTrades(incoming)
-          onClose()
+          if (!window.confirm(t('data.confirmImport', { n: incoming.length, t: trades.length }))) return
+          importTrades(incoming); onClose()
         } else {
-          alert('올바른 백업 파일이 아닙니다.')
+          alert(t('data.invalidFile'))
         }
-      } catch {
-        alert('JSON 파싱 오류가 발생했습니다.')
-      } finally {
-        if (fileInputRef.current) fileInputRef.current.value = ''
-      }
+      } catch { alert(t('data.jsonError')) }
+      finally { if (fileInputRef.current) fileInputRef.current.value = '' }
+    }
+    reader.readAsText(file)
+  }
+
+  function handleCSVChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    const reader = new FileReader()
+    reader.onload = (ev) => {
+      try {
+        const raw = ev.target?.result as string
+        // Remove BOM if present
+        const text = raw.startsWith('\uFEFF') ? raw.slice(1) : raw
+        const lines = text.split(/\r?\n/).filter((l) => l.trim())
+        if (lines.length < 2) { alert(t('data.csvNoTrades')); return }
+
+        // Skip header row, parse trades
+        const incoming: Trade[] = []
+        const TYPE_MAP: Record<string, Trade['type']> = {
+          '매수': 'buy', 'buy': 'buy',
+          '매도': 'sell', 'sell': 'sell',
+          '배당': 'dividend', 'dividend': 'dividend',
+          '분할': 'split', 'split': 'split',
+        }
+
+        for (let i = 1; i < lines.length; i++) {
+          // Parse CSV properly (handle quoted fields)
+          const cells = parseCSVLine(lines[i])
+          if (cells.length < 8) continue
+          // Format: portfolio, date, ticker, name, market, type, quantity, price, amount, note
+          const [, date, ticker, name, market, typeRaw, qty, priceRaw, , note] = cells
+          const tradeType = TYPE_MAP[typeRaw?.toLowerCase() ?? '']
+          if (!tradeType || !ticker || !date) continue
+          incoming.push({
+            id: crypto.randomUUID(),
+            ticker: ticker.trim().toUpperCase(),
+            name: (name ?? ticker).trim(),
+            market: (['KRX', 'US', 'ETF'].includes(market?.trim() ?? '') ? market.trim() : 'US') as Trade['market'],
+            type: tradeType,
+            quantity: parseFloat(qty) || 0,
+            price: parseFloat(priceRaw) || 0,
+            date: date.trim(),
+            note: (note ?? '').trim(),
+            createdAt: new Date().toISOString(),
+          })
+        }
+
+        if (incoming.length === 0) { alert(t('data.csvNoTrades')); return }
+        if (!window.confirm(t('data.confirmImport', { n: incoming.length, t: trades.length }))) return
+        importTrades(incoming); onClose()
+      } catch { alert(t('data.csvError')) }
+      finally { if (csvInputRef.current) csvInputRef.current.value = '' }
     }
     reader.readAsText(file)
   }
 
   function handleExportCSV() {
     const allTrades = getAllTrades()
+    const typeLabel: Record<string, string> = { buy: '매수', sell: '매도', dividend: '배당', split: '분할' }
     const headers = ['포트폴리오', '날짜', '티커', '종목명', '시장', '거래유형', '수량', '단가', '거래금액', '노트']
-    const rows = allTrades.map(({ trade: t, portfolioName }) => {
-      const typeLabel: Record<string, string> = { buy: '매수', sell: '매도', dividend: '배당', split: '분할' }
-      return [
-        portfolioName,
-        t.date,
-        t.ticker,
-        t.name,
-        t.market,
-        typeLabel[t.type] ?? t.type,
-        String(t.quantity),
-        String(t.price),
-        t.type === 'split' ? '0' : String(t.quantity * t.price),
-        t.note,
-      ]
-    })
-
+    const rows = allTrades.map(({ trade: tr, portfolioName }) => [
+      portfolioName, tr.date, tr.ticker, tr.name, tr.market,
+      typeLabel[tr.type] ?? tr.type, String(tr.quantity), String(tr.price),
+      tr.type === 'split' ? '0' : String(tr.quantity * tr.price), tr.note,
+    ])
     const csvLines = [headers, ...rows].map((row) =>
       row.map((cell) => {
         const str = String(cell)
-        if (str.includes(',') || str.includes('"') || str.includes('\n')) {
-          return '"' + str.replace(/"/g, '""') + '"'
-        }
-        return str
+        return (str.includes(',') || str.includes('"') || str.includes('\n'))
+          ? '"' + str.replace(/"/g, '""') + '"'
+          : str
       }).join(',')
     )
-
     const csv = '\uFEFF' + csvLines.join('\r\n')
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
     const url = URL.createObjectURL(blob)
@@ -168,59 +187,55 @@ export function DataManager({ open, onClose }: Props) {
       <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
         <div className="bg-surface-900 border border-slate-800 rounded-xl shadow-2xl w-full max-w-sm">
           <div className="flex items-center justify-between px-5 py-4 border-b border-slate-800">
-            <h2 className="text-base font-semibold text-slate-100">데이터 관리</h2>
+            <h2 className="text-base font-semibold text-slate-100">{t('data.title')}</h2>
             <button onClick={onClose} className="text-slate-500 hover:text-slate-300 text-2xl leading-none">×</button>
           </div>
 
           <div className="px-5 py-5 space-y-3">
             <p className="text-xs text-slate-500 mb-4">
-              {portfolios.length}개 포트폴리오, 총 {totalTradesAll}건 거래 데이터
+              {t('data.portfolioCount', { n: portfolios.length, t: totalTradesAll })}
             </p>
 
-            <ActionButton
-              icon={<DownloadIcon />}
-              label="JSON 내보내기"
-              description="모든 포트폴리오 데이터를 JSON 파일로 저장"
-              onClick={handleExportJSON}
-            />
-
-            <ActionButton
-              icon={<UploadIcon />}
-              label="JSON 가져오기"
-              description="백업 파일에서 거래 데이터 복원 (현재 포트폴리오 덮어쓰기)"
-              onClick={handleImportJSON}
-              danger
-            />
-
-            <ActionButton
-              icon={<CsvIcon />}
-              label="CSV 내보내기 (전체)"
-              description="모든 포트폴리오를 엑셀에서 열 수 있는 CSV로 저장"
-              onClick={handleExportCSV}
-            />
+            <ActionButton icon={<DownloadIcon />} label={t('data.exportJSON')} description={t('data.exportJSONDesc')} onClick={handleExportJSON} />
+            <ActionButton icon={<UploadIcon />} label={t('data.importJSON')} description={t('data.importJSONDesc')} onClick={handleImportJSON} danger />
+            <ActionButton icon={<CsvIcon />} label={t('data.exportCSV')} description={t('data.exportCSVDesc')} onClick={handleExportCSV} />
+            <ActionButton icon={<UploadIcon />} label={t('data.importCSV')} description={t('data.importCSVDesc')} onClick={handleImportCSV} danger />
           </div>
         </div>
       </div>
 
-      <input
-        ref={fileInputRef}
-        type="file"
-        accept=".json"
-        className="hidden"
-        onChange={handleFileChange}
-      />
+      <input ref={fileInputRef} type="file" accept=".json" className="hidden" onChange={handleFileChange} />
+      <input ref={csvInputRef} type="file" accept=".csv" className="hidden" onChange={handleCSVChange} />
     </>
   )
 }
 
-function ActionButton({
-  icon, label, description, onClick, danger = false,
-}: {
-  icon: React.ReactNode
-  label: string
-  description: string
-  onClick: () => void
-  danger?: boolean
+function parseCSVLine(line: string): string[] {
+  const cells: string[] = []
+  let i = 0
+  while (i < line.length) {
+    if (line[i] === '"') {
+      let cell = ''
+      i++
+      while (i < line.length) {
+        if (line[i] === '"' && line[i + 1] === '"') { cell += '"'; i += 2 }
+        else if (line[i] === '"') { i++; break }
+        else { cell += line[i++] }
+      }
+      cells.push(cell)
+      if (line[i] === ',') i++
+    } else {
+      const end = line.indexOf(',', i)
+      if (end === -1) { cells.push(line.slice(i)); break }
+      cells.push(line.slice(i, end))
+      i = end + 1
+    }
+  }
+  return cells
+}
+
+function ActionButton({ icon, label, description, onClick, danger = false }: {
+  icon: React.ReactNode; label: string; description: string; onClick: () => void; danger?: boolean
 }) {
   return (
     <button

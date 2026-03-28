@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react'
 import { TrendingUp } from './Icons'
 import { usePortfolioStore } from '../../store/portfolioStore'
+import { useI18n } from '../../hooks/useI18n'
 
 type Page = 'dashboard' | 'history' | 'add'
 
@@ -20,7 +21,10 @@ export function Navbar({ page, onNavigate, onOpenDataManager }: NavbarProps) {
   const setTheme = usePortfolioStore((s) => s.setTheme)
   const compactNumbers = usePortfolioStore((s) => s.compactNumbers)
   const toggleCompactNumbers = usePortfolioStore((s) => s.toggleCompactNumbers)
+  const language = usePortfolioStore((s) => s.language)
+  const setLanguage = usePortfolioStore((s) => s.setLanguage)
   const portfolios = usePortfolioStore((s) => s.portfolios)
+  const { t } = useI18n()
   const activePortfolioId = usePortfolioStore((s) => s.activePortfolioId)
   const addPortfolio = usePortfolioStore((s) => s.addPortfolio)
   const renamePortfolio = usePortfolioStore((s) => s.renamePortfolio)
@@ -51,7 +55,7 @@ export function Navbar({ page, onNavigate, onOpenDataManager }: NavbarProps) {
   }, [])
 
   function handleAddPortfolio() {
-    const name = window.prompt('새 포트폴리오 이름을 입력하세요')
+    const name = window.prompt(language === 'en' ? 'Enter new portfolio name' : '새 포트폴리오 이름을 입력하세요')
     if (name?.trim()) {
       addPortfolio(name.trim())
       setShowPortfolioMenu(false)
@@ -70,7 +74,9 @@ export function Navbar({ page, onNavigate, onOpenDataManager }: NavbarProps) {
 
   function handleDeletePortfolio(id: string, name: string) {
     if (portfolios.length <= 1) return
-    if (confirm(`"${name}" 포트폴리오를 삭제하시겠습니까?\n포함된 모든 거래 데이터가 삭제됩니다.`)) {
+    if (confirm(language === 'en'
+      ? `Delete portfolio "${name}"?\nAll trade data will be permanently deleted.`
+      : `"${name}" 포트폴리오를 삭제하시겠습니까?\n포함된 모든 거래 데이터가 삭제됩니다.`)) {
       deletePortfolio(id)
     }
   }
@@ -109,7 +115,7 @@ export function Navbar({ page, onNavigate, onOpenDataManager }: NavbarProps) {
               onClick={() => setShowPortfolioMenu((v) => !v)}
               className="flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 transition-colors"
             >
-              <span className="max-w-[100px] truncate">{activePortfolio?.name ?? '포트폴리오'}</span>
+              <span className="max-w-[100px] truncate">{activePortfolio?.name ?? t('nav.portfolioDefault')}</span>
               <svg width="10" height="10" viewBox="0 0 10 10" fill="currentColor">
                 <path d="M2 3.5L5 6.5L8 3.5" stroke="currentColor" strokeWidth="1.5" fill="none" strokeLinecap="round"/>
               </svg>
@@ -141,7 +147,7 @@ export function Navbar({ page, onNavigate, onOpenDataManager }: NavbarProps) {
                       <button
                         onClick={() => handleRenamePortfolio(p.id, p.name)}
                         className="p-1 text-slate-600 hover:text-slate-300 rounded transition-colors"
-                        title="이름 변경"
+                        title={t('nav.rename')}
                       >
                         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                           <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
@@ -152,7 +158,7 @@ export function Navbar({ page, onNavigate, onOpenDataManager }: NavbarProps) {
                         <button
                           onClick={() => handleDeletePortfolio(p.id, p.name)}
                           className="p-1 text-slate-600 hover:text-red-400 rounded transition-colors"
-                          title="삭제"
+                          title={t('nav.delete')}
                         >
                           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                             <polyline points="3 6 5 6 21 6" />
@@ -169,7 +175,7 @@ export function Navbar({ page, onNavigate, onOpenDataManager }: NavbarProps) {
                     onClick={handleAddPortfolio}
                     className="w-full text-xs text-indigo-400 hover:text-indigo-300 py-1.5 text-center transition-colors"
                   >
-                    + 새 포트폴리오
+                    {t('nav.newPortfolio')}
                   </button>
                 </div>
               </div>
@@ -180,10 +186,10 @@ export function Navbar({ page, onNavigate, onOpenDataManager }: NavbarProps) {
         {/* Right side nav */}
         <div className="flex items-center gap-1">
           <NavLink active={page === 'dashboard'} onClick={() => onNavigate('dashboard')}>
-            대시보드
+            {t('nav.dashboard')}
           </NavLink>
           <NavLink active={page === 'history'} onClick={() => onNavigate('history')}>
-            거래내역
+            {t('nav.history')}
           </NavLink>
 
           {/* Exchange rate display + override */}
@@ -199,18 +205,18 @@ export function Navbar({ page, onNavigate, onOpenDataManager }: NavbarProps) {
                   placeholder={String(effectiveRate)}
                   className="w-20 bg-surface-800 border border-indigo-500 rounded px-2 py-0.5 text-xs text-slate-200 font-mono focus:outline-none"
                 />
-                <button onClick={handleSetRate} className="text-xs text-indigo-400 hover:text-indigo-300">확인</button>
-                <button onClick={() => setEditingRateId(null)} className="text-xs text-slate-500 hover:text-slate-300">취소</button>
+                <button onClick={handleSetRate} className="text-xs text-indigo-400 hover:text-indigo-300">{t('nav.confirm')}</button>
+                <button onClick={() => setEditingRateId(null)} className="text-xs text-slate-500 hover:text-slate-300">{t('nav.cancel')}</button>
               </div>
             ) : (
               <button
                 onClick={() => { setEditingRateId('rate'); setRateInput(String(effectiveRate)) }}
                 className="flex items-center gap-1 text-xs text-slate-500 hover:text-slate-300 font-mono transition-colors"
-                title="환율 수동 설정"
+                title={t('nav.manualRateTitle')}
               >
                 $1 = ₩{effectiveRate.toLocaleString('ko-KR')}
                 {exchangeRateOverride != null && (
-                  <span className="text-amber-400 text-[10px] px-1 py-0.5 bg-amber-900/30 rounded">수동</span>
+                  <span className="text-amber-400 text-[10px] px-1 py-0.5 bg-amber-900/30 rounded">{t('nav.manualBadge')}</span>
                 )}
               </button>
             )}
@@ -218,7 +224,7 @@ export function Navbar({ page, onNavigate, onOpenDataManager }: NavbarProps) {
               <button
                 onClick={clearRateOverride}
                 className="text-slate-600 hover:text-slate-300 text-xs"
-                title="환율 자동으로 되돌리기"
+                title={t('nav.revertRate')}
               >×</button>
             )}
           </div>
@@ -247,10 +253,19 @@ export function Navbar({ page, onNavigate, onOpenDataManager }: NavbarProps) {
             </button>
           </div>
 
+          {/* Language toggle */}
+          <button
+            onClick={() => setLanguage(language === 'ko' ? 'en' : 'ko')}
+            title={t('nav.langToggle')}
+            className="ml-1 px-2 py-1.5 rounded-lg text-xs font-medium text-slate-400 hover:text-slate-200 hover:bg-slate-800 transition-colors duration-150"
+          >
+            {t('nav.langToggle')}
+          </button>
+
           {/* Compact numbers toggle */}
           <button
             onClick={toggleCompactNumbers}
-            title={compactNumbers ? '숫자 단위 간소화 켜짐' : '숫자 단위 간소화 꺼짐'}
+            title={compactNumbers ? t('nav.compactOn') : t('nav.compactOff')}
             className={`ml-1 p-1.5 rounded-lg transition-colors duration-150 text-xs font-mono ${
               compactNumbers
                 ? 'text-indigo-400 bg-indigo-900/30 hover:bg-indigo-900/50'
@@ -263,7 +278,7 @@ export function Navbar({ page, onNavigate, onOpenDataManager }: NavbarProps) {
           {/* Theme toggle */}
           <button
             onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
-            title={theme === 'dark' ? '라이트 모드로 전환' : '다크 모드로 전환'}
+            title={theme === 'dark' ? t('nav.lightMode') : t('nav.darkMode')}
             className="ml-1 p-1.5 rounded-lg text-slate-400 hover:text-slate-200 hover:bg-slate-800 transition-colors duration-150"
           >
             {theme === 'dark' ? (
@@ -299,7 +314,7 @@ export function Navbar({ page, onNavigate, onOpenDataManager }: NavbarProps) {
             onClick={() => onNavigate('add')}
             className="ml-1 bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-medium px-3 py-1.5 rounded-lg transition-colors duration-150 whitespace-nowrap"
           >
-            + 거래 입력
+            {t('nav.addTrade')}
           </button>
         </div>
       </div>

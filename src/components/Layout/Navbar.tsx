@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from 'react'
 import { TrendingUp } from './Icons'
 import { usePortfolioStore } from '../../store/portfolioStore'
 import { useI18n } from '../../hooks/useI18n'
+import { useConfirm } from '../../hooks/useConfirm'
 import { WIDGETS } from '../../constants/widgets'
 
 type Page = 'dashboard' | 'history' | 'add' | 'search'
@@ -42,6 +43,8 @@ export function Navbar({ page, onNavigate, onOpenDataManager, onOpenSettings }: 
   const [rateInput, setRateInput] = useState('')
   const [renamingId, setRenamingId] = useState<string | null>(null)
   const [renameInput, setRenameInput] = useState('')
+
+  const { confirmDialog, requestConfirm } = useConfirm('delete-portfolio')
 
   const portfolioMenuRef = useRef<HTMLDivElement>(null)
   const widgetMenuRef = useRef<HTMLDivElement>(null)
@@ -84,9 +87,12 @@ export function Navbar({ page, onNavigate, onOpenDataManager, onOpenSettings }: 
 
   function handleDeletePortfolio(id: string, name: string) {
     if (portfolios.length <= 1) return
-    if (confirm(t('nav.deletePortfolioConfirm', { name }))) {
-      deletePortfolio(id)
-    }
+    requestConfirm({
+      title: t('confirm.deletePortfolioTitle'),
+      message: t('nav.deletePortfolioConfirm', { name }),
+      variant: 'danger',
+      onConfirm: () => { deletePortfolio(id); setShowPortfolioMenu(false) },
+    })
   }
 
   function handleSetRate() {
@@ -103,6 +109,8 @@ export function Navbar({ page, onNavigate, onOpenDataManager, onOpenSettings }: 
   }
 
   return (
+    <>
+    {confirmDialog}
     <nav className="bg-surface-900 border-b border-slate-800 sticky top-0 z-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 flex items-center justify-between h-14">
         {/* Logo + Portfolio Switcher */}
@@ -374,6 +382,7 @@ export function Navbar({ page, onNavigate, onOpenDataManager, onOpenSettings }: 
         </div>
       </div>
     </nav>
+    </>
   )
 }
 

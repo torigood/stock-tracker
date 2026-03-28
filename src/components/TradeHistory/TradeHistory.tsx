@@ -5,6 +5,7 @@ import { usePortfolioStore } from '../../store/portfolioStore'
 import { formatPrice } from '../../utils/calculations'
 import { TrashIcon, EditIcon } from '../Layout/Icons'
 import { useI18n } from '../../hooks/useI18n'
+import { useConfirm } from '../../hooks/useConfirm'
 import type { TranslationKey } from '../../i18n/translations'
 
 function TypeMeta(t: (key: TranslationKey, vars?: Record<string, string | number>) => string): Record<TradeType, { label: string; cls: string }> {
@@ -19,6 +20,7 @@ function TypeMeta(t: (key: TranslationKey, vars?: Record<string, string | number
 export function TradeHistory() {
   const { trades, updateTrade, deleteTrade } = usePortfolioStore()
   const { t } = useI18n()
+  const { confirmDialog, requestConfirm } = useConfirm('delete-trade')
   const [filterTicker, setFilterTicker] = useState('')
   const [filterType, setFilterType] = useState<TradeType | 'all'>('all')
   const [filterFrom, setFilterFrom] = useState('')
@@ -69,9 +71,12 @@ export function TradeHistory() {
   }
 
   function handleDelete(id: string) {
-    if (confirm(t('history.confirmDelete'))) {
-      deleteTrade(id)
-    }
+    requestConfirm({
+      title: t('confirm.deleteTitle'),
+      message: t('history.confirmDelete'),
+      variant: 'danger',
+      onConfirm: () => deleteTrade(id),
+    })
   }
 
   const marketBadgeClass: Record<Market, string> = {
@@ -82,6 +87,7 @@ export function TradeHistory() {
 
   return (
     <div>
+      {confirmDialog}
       {/* Type filter */}
       <div className="flex flex-wrap gap-1.5 mb-3">
         {TYPE_FILTER.map((f) => (

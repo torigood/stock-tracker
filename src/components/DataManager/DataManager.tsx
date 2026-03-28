@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react'
 import dayjs from 'dayjs'
 import { usePortfolioStore } from '../../store/portfolioStore'
 import { useI18n } from '../../hooks/useI18n'
+import { useConfirm } from '../../hooks/useConfirm'
 import type { Trade } from '../../types'
 
 interface Props {
@@ -16,6 +17,8 @@ export function DataManager({ open, onClose }: Props) {
   const activePortfolioId = usePortfolioStore((s) => s.activePortfolioId)
   const importTrades = usePortfolioStore((s) => s.importTrades)
   const { t } = useI18n()
+
+  const { confirmDialog, requestConfirm } = useConfirm('import-data')
 
   const fileInputRef = useRef<HTMLInputElement>(null)
   const csvInputRef = useRef<HTMLInputElement>(null)
@@ -82,14 +85,22 @@ export function DataManager({ open, onClose }: Props) {
         const obj = parsed as Record<string, unknown>
         if ('trades' in obj && Array.isArray(obj.trades)) {
           const incoming = obj.trades as Trade[]
-          if (!window.confirm(t('data.confirmImport', { n: incoming.length, t: trades.length }))) return
-          importTrades(incoming); onClose()
+          requestConfirm({
+            title: t('confirm.importTitle'),
+            message: t('data.confirmImport', { n: incoming.length, t: trades.length }),
+            variant: 'primary',
+            onConfirm: () => { importTrades(incoming); onClose() },
+          })
         } else if ('portfolioData' in obj) {
           const pdata = obj.portfolioData as Record<string, { trades: Trade[] }>
           const firstKey = Object.keys(pdata)[0]
           const incoming = firstKey ? (pdata[firstKey]?.trades ?? []) : []
-          if (!window.confirm(t('data.confirmImport', { n: incoming.length, t: trades.length }))) return
-          importTrades(incoming); onClose()
+          requestConfirm({
+            title: t('confirm.importTitle'),
+            message: t('data.confirmImport', { n: incoming.length, t: trades.length }),
+            variant: 'primary',
+            onConfirm: () => { importTrades(incoming); onClose() },
+          })
         } else {
           alert(t('data.invalidFile'))
         }
@@ -143,8 +154,12 @@ export function DataManager({ open, onClose }: Props) {
         }
 
         if (incoming.length === 0) { alert(t('data.csvNoTrades')); return }
-        if (!window.confirm(t('data.confirmImport', { n: incoming.length, t: trades.length }))) return
-        importTrades(incoming); onClose()
+        requestConfirm({
+          title: t('confirm.importTitle'),
+          message: t('data.confirmImport', { n: incoming.length, t: trades.length }),
+          variant: 'primary',
+          onConfirm: () => { importTrades(incoming); onClose() },
+        })
       } catch { alert(t('data.csvError')) }
       finally { if (csvInputRef.current) csvInputRef.current.value = '' }
     }
@@ -182,6 +197,7 @@ export function DataManager({ open, onClose }: Props) {
 
   return (
     <>
+      {confirmDialog}
       <div className="fixed inset-0 bg-black/60 z-40 backdrop-blur-sm" onClick={onClose} />
 
       <div className="fixed inset-0 z-50 flex items-center justify-center px-4">

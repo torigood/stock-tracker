@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from 'react'
 import { TrendingUp } from './Icons'
 import { usePortfolioStore } from '../../store/portfolioStore'
 import { useI18n } from '../../hooks/useI18n'
+import { WIDGETS } from '../../constants/widgets'
 
 type Page = 'dashboard' | 'history' | 'add'
 
@@ -32,23 +33,31 @@ export function Navbar({ page, onNavigate, onOpenDataManager, onOpenSettings }: 
   const deletePortfolio = usePortfolioStore((s) => s.deletePortfolio)
   const switchPortfolio = usePortfolioStore((s) => s.switchPortfolio)
 
+  const hiddenWidgets = usePortfolioStore((s) => s.hiddenWidgets)
+  const setWidgetHidden = usePortfolioStore((s) => s.setWidgetHidden)
+
   const [showPortfolioMenu, setShowPortfolioMenu] = useState(false)
+  const [showWidgetMenu, setShowWidgetMenu] = useState(false)
   const [editingRateId, setEditingRateId] = useState<string | null>(null) // 'rate'
   const [rateInput, setRateInput] = useState('')
   const [renamingId, setRenamingId] = useState<string | null>(null)
   const [renameInput, setRenameInput] = useState('')
 
   const portfolioMenuRef = useRef<HTMLDivElement>(null)
+  const widgetMenuRef = useRef<HTMLDivElement>(null)
 
   const effectiveRate = exchangeRateOverride ?? exchangeRate
   const activePortfolio = portfolios.find((p) => p.id === activePortfolioId) ?? portfolios[0]
 
-  // Close portfolio menu on outside click
+  // Close menus on outside click
   useEffect(() => {
     function handler(e: MouseEvent) {
       if (portfolioMenuRef.current && !portfolioMenuRef.current.contains(e.target as Node)) {
         setShowPortfolioMenu(false)
         setRenamingId(null)
+      }
+      if (widgetMenuRef.current && !widgetMenuRef.current.contains(e.target as Node)) {
+        setShowWidgetMenu(false)
       }
     }
     document.addEventListener('mousedown', handler)
@@ -294,6 +303,38 @@ export function Navbar({ page, onNavigate, onOpenDataManager, onOpenSettings }: 
               </svg>
             )}
           </button>
+
+          {/* Widget toggle dropdown */}
+          <div ref={widgetMenuRef} className="relative ml-1">
+            <button
+              onClick={() => setShowWidgetMenu((v) => !v)}
+              title={t('widget.showHide')}
+              className={`p-1.5 rounded-lg transition-colors duration-150 ${showWidgetMenu ? 'text-indigo-400 bg-indigo-900/30' : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800'}`}
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/>
+                <rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/>
+              </svg>
+            </button>
+            {showWidgetMenu && (
+              <div className="absolute right-0 top-full mt-1 w-52 bg-surface-800 border border-slate-700 rounded-xl shadow-2xl z-50 p-3">
+                <p className="text-[10px] font-medium text-slate-500 uppercase tracking-wide mb-2">{t('widget.showHide')}</p>
+                <div className="space-y-1.5">
+                  {WIDGETS.map(({ id, labelKey }) => (
+                    <label key={id} className="flex items-center gap-2 cursor-pointer group">
+                      <input
+                        type="checkbox"
+                        checked={!hiddenWidgets.includes(id)}
+                        onChange={(e) => setWidgetHidden(id, !e.target.checked)}
+                        className="accent-indigo-500 w-3.5 h-3.5"
+                      />
+                      <span className="text-xs text-slate-400 group-hover:text-slate-200 transition-colors">{t(labelKey)}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
 
           {/* Settings button */}
           <button

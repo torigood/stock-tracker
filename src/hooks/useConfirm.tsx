@@ -74,10 +74,10 @@ export function useConfirm(suppressKey: string) {
               />
               <span className="text-[11px] text-slate-600">{t('confirm.skipDay')}</span>
             </label>
-            <div className="flex items-center gap-2">
+            <div className="flex gap-2">
               <button
                 onClick={handleConfirm}
-                className={`px-4 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                className={`flex-1 py-2 rounded-lg text-sm font-medium transition-colors ${
                   isDanger
                     ? 'bg-red-600 hover:bg-red-500 text-white'
                     : 'bg-indigo-600 hover:bg-indigo-500 text-white'
@@ -87,7 +87,7 @@ export function useConfirm(suppressKey: string) {
               </button>
               <button
                 onClick={handleCancel}
-                className="text-xs text-slate-500 hover:text-slate-300 transition-colors"
+                className="flex-1 py-2 rounded-lg text-sm font-medium bg-slate-700 hover:bg-slate-600 text-slate-300 transition-colors"
               >
                 {t('nav.cancel')}
               </button>

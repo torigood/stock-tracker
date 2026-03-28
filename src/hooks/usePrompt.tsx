@@ -68,17 +68,17 @@ export function usePrompt() {
           </div>
 
           {/* Footer */}
-          <div className="px-4 pb-4 flex items-center gap-2">
+          <div className="px-4 pb-4 flex gap-2">
             <button
               onClick={handleConfirm}
               disabled={!value.trim()}
-              className="px-4 py-1.5 rounded-lg text-xs font-medium bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 disabled:cursor-not-allowed text-white transition-colors"
+              className="flex-1 py-2 rounded-lg text-sm font-medium bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 disabled:cursor-not-allowed text-white transition-colors"
             >
               {pending.confirmLabel ?? t('nav.confirm')}
             </button>
             <button
               onClick={handleCancel}
-              className="text-xs text-slate-500 hover:text-slate-300 transition-colors"
+              className="flex-1 py-2 rounded-lg text-sm font-medium bg-slate-700 hover:bg-slate-600 text-slate-300 transition-colors"
             >
               {t('nav.cancel')}
             </button>

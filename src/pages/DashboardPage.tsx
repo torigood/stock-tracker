@@ -1,4 +1,4 @@
-import { useMemo, useState, useEffect, useCallback } from 'react'
+import { useMemo, useState, useEffect } from 'react'
 import { usePortfolio } from '../hooks/usePortfolio'
 import { useStockPrice } from '../hooks/useStockPrice'
 import { usePortfolioStore } from '../store/portfolioStore'
@@ -67,91 +67,71 @@ export function DashboardPage() {
 
   const isVisible = (id: string) => !hiddenWidgets.includes(id)
 
-  // Grid pairs: when rendering these widgets, render both together in a grid
   const PAIRS: [string, string][] = [
     ['holdings', 'donut'],
     ['heatmap', 'monthlyChart'],
     ['taxReport', 'rebalancing'],
   ]
 
-  const getPairFor = (id: string): [string, string] | null => {
-    return PAIRS.find((p) => p.includes(id)) ?? null
-  }
+  const effectiveOrder = widgetOrder.length > 0 ? widgetOrder : WIDGETS.map((w) => w.id)
 
+  // Build sections in order, collapsing grid pairs into single entries
+  const sections: React.ReactNode[] = []
   const renderedPairs = new Set<string>()
 
-  const renderSection = useCallback((id: string): React.ReactNode => {
-    // Check if this is part of a pair
-    const pair = getPairFor(id)
+  for (const id of effectiveOrder) {
+    const pair = PAIRS.find((p) => p.includes(id))
     if (pair) {
       const pairKey = pair.join('-')
-      if (renderedPairs.has(pairKey)) return null
+      if (renderedPairs.has(pairKey)) continue
       renderedPairs.add(pairKey)
-
       const [a, b] = pair
       const aVisible = isVisible(a)
       const bVisible = isVisible(b)
-      if (!aVisible && !bVisible) return null
+      if (!aVisible && !bVisible) continue
 
-      if (a === 'holdings' && b === 'donut') {
-        return (
+      if (a === 'holdings') {
+        sections.push(
           <div key={pairKey} className="grid grid-cols-1 lg:grid-cols-3 gap-5">
             {aVisible && (
               <div className="lg:col-span-2">
-                <PositionTable
-                  positions={positions}
-                  loading={loading}
-                  onRefresh={refresh}
-                  onSelect={setSelectedPosition}
-                />
+                <PositionTable positions={positions} loading={loading} onRefresh={refresh} onSelect={setSelectedPosition} />
               </div>
             )}
-            {bVisible && (
-              <div>
-                <DonutChart positions={positions} />
-              </div>
-            )}
+            {bVisible && <div><DonutChart positions={positions} /></div>}
           </div>
         )
-      }
-
-      if (a === 'heatmap' && b === 'monthlyChart') {
-        return (
+      } else if (a === 'heatmap') {
+        sections.push(
           <div key={pairKey} className="grid grid-cols-1 lg:grid-cols-2 gap-5">
             {aVisible && <Heatmap positions={positions} />}
             {bVisible && <MonthlyPLChart />}
           </div>
         )
-      }
-
-      if (a === 'taxReport' && b === 'rebalancing') {
-        return (
+      } else if (a === 'taxReport') {
+        sections.push(
           <div key={pairKey} className="grid grid-cols-1 lg:grid-cols-2 gap-5">
             {aVisible && <TaxReport />}
             {bVisible && <RebalancingCalculator positions={positions} />}
           </div>
         )
       }
-
-      return null
+      continue
     }
 
-    if (!isVisible(id)) return null
+    if (!isVisible(id)) continue
 
     switch (id) {
-      case 'reminders': return <ReminderBanner key={id} />
-      case 'pinnedNotes': return <PinnedNotes key={id} />
-      case 'summary': return <SummaryCards key={id} summary={summary} />
-      case 'portfolioChart': return <PortfolioChart key={id} />
-      case 'performance': return <PerformanceMetrics key={id} positions={positions} />
-      case 'benchmark': return <BenchmarkChart key={id} positions={positions} />
-      case 'dividendCalendar': return <DividendCalendar key={id} />
-      case 'news': return <NewsWidget key={id} />
-      default: return null
+      case 'reminders':       sections.push(<ReminderBanner key={id} />); break
+      case 'pinnedNotes':     sections.push(<PinnedNotes key={id} />); break
+      case 'summary':         sections.push(<SummaryCards key={id} summary={summary} />); break
+      case 'portfolioChart':  sections.push(<PortfolioChart key={id} />); break
+      case 'performance':     sections.push(<PerformanceMetrics key={id} positions={positions} />); break
+      case 'benchmark':       sections.push(<BenchmarkChart key={id} positions={positions} />); break
+      case 'dividendCalendar': sections.push(<DividendCalendar key={id} />); break
+      case 'news':            sections.push(<NewsWidget key={id} />); break
     }
-  }, [positions, loading, refresh, summary, hiddenWidgets]) // eslint-disable-line react-hooks/exhaustive-deps
-
-  const effectiveOrder = widgetOrder.length > 0 ? widgetOrder : WIDGETS.map((w) => w.id)
+  }
 
   return (
     <div className="space-y-5">
@@ -164,7 +144,7 @@ export function DashboardPage() {
         </div>
       )}
 
-      {effectiveOrder.map((id) => renderSection(id))}
+      {sections}
 
       <PositionDetail
         position={liveSelected}

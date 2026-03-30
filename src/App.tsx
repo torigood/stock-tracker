@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { Analytics } from '@vercel/analytics/react'
 import { Navbar } from './components/Layout/Navbar'
 import { DashboardPage } from './pages/DashboardPage'
 import { HistoryPage } from './pages/HistoryPage'
@@ -68,6 +69,7 @@ export default function App() {
         open={showSettings}
         onClose={() => setShowSettings(false)}
       />
+      <Analytics />
     </div>
   )
 }

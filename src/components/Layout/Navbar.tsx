@@ -1,10 +1,26 @@
 import { useState, useRef, useEffect } from 'react'
+import {
+  DndContext,
+  closestCenter,
+  PointerSensor,
+  useSensor,
+  useSensors,
+} from '@dnd-kit/core'
+import type { DragEndEvent } from '@dnd-kit/core'
+import {
+  SortableContext,
+  verticalListSortingStrategy,
+  useSortable,
+  arrayMove,
+} from '@dnd-kit/sortable'
+import { CSS } from '@dnd-kit/utilities'
 import { TrendingUp } from './Icons'
 import { usePortfolioStore } from '../../store/portfolioStore'
 import { useI18n } from '../../hooks/useI18n'
 import { useConfirm } from '../../hooks/useConfirm'
 import { usePrompt } from '../../hooks/usePrompt'
 import { WIDGETS } from '../../constants/widgets'
+import type { TranslationKey } from '../../i18n/translations'
 
 type Page = 'dashboard' | 'history' | 'add' | 'search'
 
@@ -13,6 +29,62 @@ interface NavbarProps {
   onNavigate: (page: Page) => void
   onOpenDataManager: () => void
   onOpenSettings: () => void
+}
+
+function DragHandle() {
+  return (
+    <svg width="12" height="12" viewBox="0 0 12 12" fill="currentColor" className="text-slate-600 cursor-grab active:cursor-grabbing">
+      <circle cx="4" cy="2" r="1.2"/><circle cx="8" cy="2" r="1.2"/>
+      <circle cx="4" cy="6" r="1.2"/><circle cx="8" cy="6" r="1.2"/>
+      <circle cx="4" cy="10" r="1.2"/><circle cx="8" cy="10" r="1.2"/>
+    </svg>
+  )
+}
+
+interface SortableWidgetItemProps {
+  id: string
+  labelKey: TranslationKey
+  checked: boolean
+  onToggle: (checked: boolean) => void
+}
+
+function SortableWidgetItem({ id, labelKey, checked, onToggle }: SortableWidgetItemProps) {
+  const { t } = useI18n()
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id })
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+  }
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className="flex items-center gap-2 cursor-pointer group"
+    >
+      <span {...attributes} {...listeners} className="flex-shrink-0">
+        <DragHandle />
+      </span>
+      <label className="flex items-center gap-2 flex-1 cursor-pointer">
+        <input
+          type="checkbox"
+          checked={checked}
+          onChange={(e) => onToggle(e.target.checked)}
+          className="accent-indigo-500 w-3.5 h-3.5"
+        />
+        <span className="text-xs text-slate-400 group-hover:text-slate-200 transition-colors">{t(labelKey)}</span>
+      </label>
+    </div>
+  )
 }
 
 export function Navbar({ page, onNavigate, onOpenDataManager, onOpenSettings }: NavbarProps) {
@@ -37,6 +109,8 @@ export function Navbar({ page, onNavigate, onOpenDataManager, onOpenSettings }: 
 
   const hiddenWidgets = usePortfolioStore((s) => s.hiddenWidgets)
   const setWidgetHidden = usePortfolioStore((s) => s.setWidgetHidden)
+  const widgetOrder = usePortfolioStore((s) => s.widgetOrder)
+  const setWidgetOrder = usePortfolioStore((s) => s.setWidgetOrder)
 
   const [showPortfolioMenu, setShowPortfolioMenu] = useState(false)
   const [showWidgetMenu, setShowWidgetMenu] = useState(false)
@@ -53,6 +127,32 @@ export function Navbar({ page, onNavigate, onOpenDataManager, onOpenSettings }: 
 
   const effectiveRate = exchangeRateOverride ?? exchangeRate
   const activePortfolio = portfolios.find((p) => p.id === activePortfolioId) ?? portfolios[0]
+
+  // Effective widget order: use stored order or default
+  const effectiveWidgetOrder = widgetOrder.length > 0 ? widgetOrder : WIDGETS.map((w) => w.id)
+
+  // Build ordered widgets list
+  const orderedWidgets = [
+    ...effectiveWidgetOrder
+      .map((id) => WIDGETS.find((w) => w.id === id))
+      .filter(Boolean),
+    // Add any new widgets not in the stored order
+    ...WIDGETS.filter((w) => !effectiveWidgetOrder.includes(w.id)),
+  ] as typeof WIDGETS
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } })
+  )
+
+  function handleDragEnd(event: DragEndEvent) {
+    const { active, over } = event
+    if (!over || active.id === over.id) return
+    const currentOrder = orderedWidgets.map((w) => w.id)
+    const oldIndex = currentOrder.indexOf(active.id as string)
+    const newIndex = currentOrder.indexOf(over.id as string)
+    if (oldIndex === -1 || newIndex === -1) return
+    setWidgetOrder(arrayMove(currentOrder, oldIndex, newIndex))
+  }
 
   // Close menus on outside click
   useEffect(() => {
@@ -318,7 +418,7 @@ export function Navbar({ page, onNavigate, onOpenDataManager, onOpenSettings }: 
             )}
           </button>
 
-          {/* Widget toggle dropdown */}
+          {/* Widget toggle dropdown with DnD */}
           <div ref={widgetMenuRef} className="relative ml-1">
             <button
               onClick={() => setShowWidgetMenu((v) => !v)}
@@ -331,21 +431,30 @@ export function Navbar({ page, onNavigate, onOpenDataManager, onOpenSettings }: 
               </svg>
             </button>
             {showWidgetMenu && (
-              <div className="absolute right-0 top-full mt-1 w-52 bg-surface-800 border border-slate-700 rounded-xl shadow-2xl z-50 p-3">
+              <div className="absolute right-0 top-full mt-1 w-56 bg-surface-800 border border-slate-700 rounded-xl shadow-2xl z-50 p-3">
                 <p className="text-[10px] font-medium text-slate-500 uppercase tracking-wide mb-2">{t('widget.showHide')}</p>
-                <div className="space-y-1.5">
-                  {WIDGETS.map(({ id, labelKey }) => (
-                    <label key={id} className="flex items-center gap-2 cursor-pointer group">
-                      <input
-                        type="checkbox"
-                        checked={!hiddenWidgets.includes(id)}
-                        onChange={(e) => setWidgetHidden(id, !e.target.checked)}
-                        className="accent-indigo-500 w-3.5 h-3.5"
-                      />
-                      <span className="text-xs text-slate-400 group-hover:text-slate-200 transition-colors">{t(labelKey)}</span>
-                    </label>
-                  ))}
-                </div>
+                <DndContext
+                  sensors={sensors}
+                  collisionDetection={closestCenter}
+                  onDragEnd={handleDragEnd}
+                >
+                  <SortableContext
+                    items={orderedWidgets.map((w) => w.id)}
+                    strategy={verticalListSortingStrategy}
+                  >
+                    <div className="space-y-1.5">
+                      {orderedWidgets.map(({ id, labelKey }) => (
+                        <SortableWidgetItem
+                          key={id}
+                          id={id}
+                          labelKey={labelKey}
+                          checked={!hiddenWidgets.includes(id)}
+                          onToggle={(checked) => setWidgetHidden(id, !checked)}
+                        />
+                      ))}
+                    </div>
+                  </SortableContext>
+                </DndContext>
               </div>
             )}
           </div>

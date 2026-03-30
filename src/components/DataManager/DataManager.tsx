@@ -3,6 +3,7 @@ import dayjs from 'dayjs'
 import { usePortfolioStore } from '../../store/portfolioStore'
 import { useI18n } from '../../hooks/useI18n'
 import { useConfirm } from '../../hooks/useConfirm'
+import { parseBrokerCSV } from '../../utils/brokerParsers'
 import type { Trade } from '../../types'
 
 interface Props {
@@ -22,6 +23,7 @@ export function DataManager({ open, onClose }: Props) {
 
   const fileInputRef = useRef<HTMLInputElement>(null)
   const csvInputRef = useRef<HTMLInputElement>(null)
+  const brokerInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     function handler(e: KeyboardEvent) { if (e.key === 'Escape') onClose() }
@@ -72,6 +74,7 @@ export function DataManager({ open, onClose }: Props) {
 
   function handleImportJSON() { fileInputRef.current?.click() }
   function handleImportCSV() { csvInputRef.current?.click() }
+  function handleImportBrokerCSV() { brokerInputRef.current?.click() }
 
   function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
@@ -166,6 +169,40 @@ export function DataManager({ open, onClose }: Props) {
     reader.readAsText(file)
   }
 
+  function handleBrokerCSVChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    const reader = new FileReader()
+    reader.onload = (ev) => {
+      try {
+        const raw = ev.target?.result as string
+        const { trades: incoming, broker, error } = parseBrokerCSV(raw)
+
+        if (error || broker === 'unknown') {
+          alert(t('data.brokerUnknown'))
+          return
+        }
+
+        if (incoming.length === 0) {
+          alert(t('data.csvNoTrades'))
+          return
+        }
+
+        const message = t('data.brokerDetected', { broker, n: incoming.length }) +
+          '\n\n' + t('data.confirmImport', { n: incoming.length, t: trades.length })
+
+        requestConfirm({
+          title: t('confirm.importTitle'),
+          message,
+          variant: 'primary',
+          onConfirm: () => { importTrades(incoming); onClose() },
+        })
+      } catch { alert(t('data.csvError')) }
+      finally { if (brokerInputRef.current) brokerInputRef.current.value = '' }
+    }
+    reader.readAsText(file, 'euc-kr')
+  }
+
   function handleExportCSV() {
     const allTrades = getAllTrades()
     const typeLabel: Record<string, string> = { buy: '매수', sell: '매도', dividend: '배당', split: '분할' }
@@ -216,12 +253,14 @@ export function DataManager({ open, onClose }: Props) {
             <ActionButton icon={<UploadIcon />} label={t('data.importJSON')} description={t('data.importJSONDesc')} onClick={handleImportJSON} danger />
             <ActionButton icon={<CsvIcon />} label={t('data.exportCSV')} description={t('data.exportCSVDesc')} onClick={handleExportCSV} />
             <ActionButton icon={<UploadIcon />} label={t('data.importCSV')} description={t('data.importCSVDesc')} onClick={handleImportCSV} danger />
+            <ActionButton icon={<BrokerIcon />} label={t('data.importBrokerCSV')} description={t('data.importBrokerCSVDesc')} onClick={handleImportBrokerCSV} danger />
           </div>
         </div>
       </div>
 
       <input ref={fileInputRef} type="file" accept=".json" className="hidden" onChange={handleFileChange} />
       <input ref={csvInputRef} type="file" accept=".csv" className="hidden" onChange={handleCSVChange} />
+      <input ref={brokerInputRef} type="file" accept=".csv" className="hidden" onChange={handleBrokerCSVChange} />
     </>
   )
 }
@@ -298,6 +337,15 @@ function CsvIcon() {
       <polyline points="14 2 14 8 20 8" />
       <line x1="16" y1="13" x2="8" y2="13" />
       <line x1="16" y1="17" x2="8" y2="17" />
+    </svg>
+  )
+}
+
+function BrokerIcon() {
+  return (
+    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="2" y="7" width="20" height="14" rx="2" ry="2" />
+      <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16" />
     </svg>
   )
 }

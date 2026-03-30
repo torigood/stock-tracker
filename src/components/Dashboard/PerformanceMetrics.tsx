@@ -3,6 +3,7 @@ import dayjs from 'dayjs'
 import type { Position } from '../../types'
 import { usePortfolioStore } from '../../store/portfolioStore'
 import { useI18n } from '../../hooks/useI18n'
+import { computeYOC, computeMDD, computeSharpe } from '../../utils/calculations'
 
 interface Props {
   positions: Position[]
@@ -10,7 +11,17 @@ interface Props {
 
 export function PerformanceMetrics({ positions }: Props) {
   const trades = usePortfolioStore((s) => s.trades)
+  const snapshots = usePortfolioStore((s) => s.snapshots)
+  const activePortfolioId = usePortfolioStore((s) => s.activePortfolioId)
+  const riskFreeRate = usePortfolioStore((s) => s.riskFreeRate)
+  const displayCurrency = usePortfolioStore((s) => s.displayCurrency)
+  const exchangeRate = usePortfolioStore((s) => s.exchangeRate)
   const { t } = useI18n()
+
+  const activeSnapshots = useMemo(
+    () => snapshots[activePortfolioId] ?? [],
+    [snapshots, activePortfolioId]
+  )
 
   const firstTradeDate = useMemo(() => {
     const buyTrades = trades.filter((tr) => tr.type === 'buy')
@@ -40,6 +51,21 @@ export function PerformanceMetrics({ positions }: Props) {
     const ratio = totalValue / totalInvested
     return (Math.pow(ratio, 365 / holdingDays) - 1) * 100
   }, [totalReturnPct, totalInvested, totalValue, holdingDays])
+
+  const yoc = useMemo(
+    () => computeYOC(trades, positions, displayCurrency, exchangeRate),
+    [trades, positions, displayCurrency, exchangeRate]
+  )
+
+  const mdd = useMemo(
+    () => computeMDD(activeSnapshots),
+    [activeSnapshots]
+  )
+
+  const sharpe = useMemo(
+    () => computeSharpe(activeSnapshots, riskFreeRate),
+    [activeSnapshots, riskFreeRate]
+  )
 
   const fmtPct = (pct: number | null): string => {
     if (pct === null) return '—'
@@ -86,6 +112,21 @@ export function PerformanceMetrics({ positions }: Props) {
           value={fmtPct(cagr)}
           valueColor={pctColor(cagr)}
           sub={holdingDays <= 365 ? t('perf.totalReturn') : undefined}
+        />
+        <MetricCard
+          label={t('perf.yoc')}
+          value={yoc !== null ? `+${yoc.toFixed(2)}%` : t('perf.insufficientData')}
+          valueColor={yoc !== null ? 'text-sky-400' : 'text-slate-500'}
+        />
+        <MetricCard
+          label={t('perf.mdd')}
+          value={mdd !== null ? `-${mdd.toFixed(2)}%` : t('perf.insufficientData')}
+          valueColor={mdd !== null ? 'text-red-400' : 'text-slate-500'}
+        />
+        <MetricCard
+          label={t('perf.sharpe')}
+          value={sharpe !== null ? sharpe.toFixed(2) : t('perf.insufficientData')}
+          valueColor={sharpe !== null ? (sharpe >= 1 ? 'text-emerald-400' : sharpe >= 0 ? 'text-slate-200' : 'text-red-400') : 'text-slate-500'}
         />
       </div>
     </div>

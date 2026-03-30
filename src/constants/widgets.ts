@@ -14,4 +14,5 @@ export const WIDGETS: { id: string; labelKey: TranslationKey }[] = [
   { id: 'taxReport',        labelKey: 'widget.taxReport' },
   { id: 'rebalancing',      labelKey: 'widget.rebalancing' },
   { id: 'dividendCalendar', labelKey: 'widget.dividendCalendar' },
+  { id: 'news', labelKey: 'widget.news' },
 ]

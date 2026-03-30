@@ -79,3 +79,9 @@ export interface PinnedNote {
   color: 'yellow' | 'green' | 'blue' | 'purple'
   createdAt: string
 }
+
+export interface PortfolioSnapshot {
+  date: string      // 'YYYY-MM-DD'
+  valueKRW: number  // total portfolio value in KRW at snapshot time
+  costKRW: number   // total cost basis in KRW at snapshot time
+}

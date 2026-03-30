@@ -335,6 +335,43 @@ const ko = {
   'common.shares': '주',
   'common.manual': '수동',
   'common.noPrice': '–',
+
+  // Feature 1 - Broker CSV
+  'data.importBrokerCSV': '증권사 CSV 가져오기',
+  'data.importBrokerCSVDesc': '키움/미래에셋/NH투자증권 거래내역',
+  'data.brokerDetected': '{broker} 형식 감지됨 ({n}건)',
+  'data.brokerUnknown': '알 수 없는 형식입니다',
+
+  // Feature 2 - Email alerts
+  'settings.emailAlert': '이메일 알림',
+  'settings.emailAlertDesc': '목표가 도달 시 이메일로 알림을 받습니다',
+  'settings.emailPlaceholder': '이메일 주소 입력',
+  'settings.alertSubscribe': '알림 등록',
+  'settings.alertUnsubscribe': '알림 해제',
+  'settings.alertActive': '✓ 알림 활성화됨',
+  'settings.alertError': '등록 실패. 다시 시도해주세요.',
+  'settings.alertNoTargets': '목표가가 설정된 종목이 없습니다',
+
+  // Feature 5 - Cost basis
+  'settings.costBasis': '원가 계산 방식',
+  'settings.costBasisDesc': '실현 손익 및 평균단가 계산 기준',
+  'settings.fifo': 'FIFO (선입선출)',
+  'settings.avgCost': '평균단가 (WA)',
+
+  // Feature 8 - News
+  'widget.news': '종목 뉴스',
+  'news.title': '관련 뉴스',
+  'news.noData': '뉴스를 불러올 수 없습니다',
+  'news.loading': '뉴스 불러오는 중...',
+  'news.noHoldings': '보유 중인 해외 종목이 없습니다',
+
+  // Feature 9 - MDD/Sharpe
+  'perf.mdd': 'MDD',
+  'perf.sharpe': 'Sharpe Ratio',
+  'perf.yoc': 'YOC',
+  'perf.insufficientData': '데이터 부족',
+  'settings.riskFreeRate': '무위험이자율 (%)',
+  'settings.riskFreeRateDesc': 'Sharpe Ratio 계산에 사용 (기본: 3.5%)',
 }
 
 const en: Record<keyof typeof ko, string> = {
@@ -674,6 +711,43 @@ const en: Record<keyof typeof ko, string> = {
   'common.shares': ' shares',
   'common.manual': 'Manual',
   'common.noPrice': '–',
+
+  // Feature 1 - Broker CSV
+  'data.importBrokerCSV': 'Import Brokerage CSV',
+  'data.importBrokerCSVDesc': 'Kiwoom/Mirae Asset/NH trade history',
+  'data.brokerDetected': '{broker} format detected ({n} trades)',
+  'data.brokerUnknown': 'Unknown format',
+
+  // Feature 2 - Email alerts
+  'settings.emailAlert': 'Email Alerts',
+  'settings.emailAlertDesc': 'Get notified by email when target price is reached',
+  'settings.emailPlaceholder': 'Enter email address',
+  'settings.alertSubscribe': 'Subscribe',
+  'settings.alertUnsubscribe': 'Unsubscribe',
+  'settings.alertActive': '✓ Alerts Active',
+  'settings.alertError': 'Failed. Please try again.',
+  'settings.alertNoTargets': 'No target prices set',
+
+  // Feature 5 - Cost basis
+  'settings.costBasis': 'Cost Basis Method',
+  'settings.costBasisDesc': 'Method for calculating realized P&L and average price',
+  'settings.fifo': 'FIFO (First In, First Out)',
+  'settings.avgCost': 'Average Cost (WA)',
+
+  // Feature 8 - News
+  'widget.news': 'Stock News',
+  'news.title': 'Related News',
+  'news.noData': 'Could not load news',
+  'news.loading': 'Loading news...',
+  'news.noHoldings': 'No foreign holdings',
+
+  // Feature 9 - MDD/Sharpe
+  'perf.mdd': 'MDD',
+  'perf.sharpe': 'Sharpe Ratio',
+  'perf.yoc': 'YOC',
+  'perf.insufficientData': 'Insufficient data',
+  'settings.riskFreeRate': 'Risk-Free Rate (%)',
+  'settings.riskFreeRateDesc': 'Used for Sharpe Ratio calculation (default: 3.5%)',
 }
 
 export type TranslationKey = keyof typeof ko

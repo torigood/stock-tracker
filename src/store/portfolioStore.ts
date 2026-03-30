@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
-import type { Trade, Reminder, PinnedNote } from '../types'
+import type { Trade, Reminder, PinnedNote, PortfolioSnapshot } from '../types'
 
 interface PortfolioMeta {
   id: string
@@ -38,6 +38,13 @@ interface PortfolioStore {
   hiddenWidgets: string[]                  // widget IDs to hide
   favorites: string[]                      // watchlist tickers
 
+  // New fields (v6)
+  costBasisMethod: 'fifo' | 'average'
+  riskFreeRate: number
+  alertEmail: string
+  snapshots: Record<string, PortfolioSnapshot[]>  // keyed by portfolioId
+  widgetOrder: string[]
+
   // Reminders & pinned notes
   reminders: Reminder[]
   pinnedNotes: PinnedNote[]
@@ -71,6 +78,13 @@ interface PortfolioStore {
   setTargetAllocation: (ticker: string, pct: number | null) => void
   setWidgetHidden: (id: string, hidden: boolean) => void
   toggleFavorite: (ticker: string) => void
+
+  // New actions (v6)
+  setCostBasisMethod: (m: 'fifo' | 'average') => void
+  setRiskFreeRate: (r: number) => void
+  setAlertEmail: (email: string) => void
+  addSnapshot: (snapshot: Omit<PortfolioSnapshot, 'date'>) => void
+  setWidgetOrder: (order: string[]) => void
 
   // Reminders
   addReminder: (r: Omit<Reminder, 'id' | 'dismissed'>) => void
@@ -110,6 +124,13 @@ export const usePortfolioStore = create<PortfolioStore>()(
       reminders: [],
       pinnedNotes: [],
 
+      // New v6 defaults
+      costBasisMethod: 'fifo',
+      riskFreeRate: 0.035,
+      alertEmail: '',
+      snapshots: {},
+      widgetOrder: [],
+
       // ── Portfolio management ────────────────────────────────────────────────
 
       addPortfolio: (name) =>
@@ -134,12 +155,15 @@ export const usePortfolioStore = create<PortfolioStore>()(
           const nextData = state.portfolioData[nextId] ?? { trades: [], targetPrices: {} }
           const newPortfolioData = { ...state.portfolioData }
           delete newPortfolioData[id]
+          const newSnapshots = { ...state.snapshots }
+          delete newSnapshots[id]
           return {
             portfolios: remaining,
             activePortfolioId: nextId,
             portfolioData: newPortfolioData,
             trades: nextData.trades,
             targetPrices: nextData.targetPrices,
+            snapshots: newSnapshots,
           }
         }),
 
@@ -301,6 +325,32 @@ export const usePortfolioStore = create<PortfolioStore>()(
             : [...state.favorites, ticker],
         })),
 
+      // ── New v6 actions ───────────────────────────────────────────────────────
+
+      setCostBasisMethod: (m) => set({ costBasisMethod: m }),
+      setRiskFreeRate: (r) => set({ riskFreeRate: r }),
+      setAlertEmail: (email) => set({ alertEmail: email }),
+
+      addSnapshot: (snapshot) =>
+        set((state) => {
+          const today = new Date().toISOString().slice(0, 10)
+          const portfolioId = state.activePortfolioId
+          const existing = state.snapshots[portfolioId] ?? []
+          // Remove today's entry if exists, then add new one
+          const filtered = existing.filter((s) => s.date !== today)
+          const updated = [...filtered, { ...snapshot, date: today }]
+          // Keep max 400 days
+          const trimmed = updated.length > 400 ? updated.slice(updated.length - 400) : updated
+          return {
+            snapshots: {
+              ...state.snapshots,
+              [portfolioId]: trimmed,
+            },
+          }
+        }),
+
+      setWidgetOrder: (order) => set({ widgetOrder: order }),
+
       // ── Reminders ───────────────────────────────────────────────────────────
 
       addReminder: (r) =>
@@ -339,7 +389,7 @@ export const usePortfolioStore = create<PortfolioStore>()(
     }),
     {
       name: 'stock-tracker-v1',
-      version: 5,
+      version: 6,
       migrate: (persistedState: unknown, version: number) => {
         const s = persistedState as Record<string, unknown>
         if (version < 2) {
@@ -378,6 +428,15 @@ export const usePortfolioStore = create<PortfolioStore>()(
         }
         if (version < 5) {
           Object.assign(s, { favorites: [] })
+        }
+        if (version < 6) {
+          Object.assign(s, {
+            costBasisMethod: 'fifo',
+            riskFreeRate: 0.035,
+            alertEmail: '',
+            snapshots: {},
+            widgetOrder: [],
+          })
         }
         return s
       },

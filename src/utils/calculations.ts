@@ -31,7 +31,7 @@ export interface RealizedRecord {
   dividendTotal: number
 }
 
-export function computeRealizedPL(trades: Trade[]): RealizedRecord[] {
+export function computeRealizedPL(trades: Trade[], method: 'fifo' | 'average' = 'fifo'): RealizedRecord[] {
   const tradesByTicker = new Map<string, Trade[]>()
   for (const trade of trades) {
     const list = tradesByTicker.get(trade.ticker) ?? []
@@ -48,48 +48,84 @@ export function computeRealizedPL(trades: Trade[]): RealizedRecord[] {
 
     const meta = sorted[sorted.length - 1]
     const baseCurrency = getBaseCurrency(meta.market, ticker)
-    const lots: Lot[] = []
     let realizedPL = 0
     let dividendTotal = 0
     let hasActivity = false
 
-    for (const trade of sorted) {
-      if (trade.type === 'buy') {
-        // Include commission in cost basis (per-share)
-        const commissionPerShare = trade.commission != null && trade.quantity > 0
-          ? trade.commission / trade.quantity
-          : 0
-        lots.push({ price: trade.price + commissionPerShare, quantity: trade.quantity, date: trade.date })
-      } else if (trade.type === 'sell') {
-        hasActivity = true
-        // Deduct sell commission from effective sell price
-        const effectiveSellPrice = trade.price - (trade.commission != null && trade.quantity > 0
-          ? trade.commission / trade.quantity
-          : 0)
-        let remaining = trade.quantity
-        while (remaining > 0 && lots.length > 0) {
-          const lot = lots[0]
-          const consumed = Math.min(lot.quantity, remaining)
-          realizedPL += (effectiveSellPrice - lot.price) * consumed
-          remaining -= consumed
-          if (lot.quantity <= consumed) {
-            lots.shift()
-          } else {
-            lot.quantity -= consumed
+    if (method === 'average') {
+      let runningCost = 0
+      let runningQty = 0
+
+      for (const trade of sorted) {
+        if (trade.type === 'buy') {
+          const commissionTotal = trade.commission ?? 0
+          runningCost += trade.price * trade.quantity + commissionTotal
+          runningQty += trade.quantity
+        } else if (trade.type === 'sell') {
+          hasActivity = true
+          const avgCost = runningQty > 0 ? runningCost / runningQty : 0
+          const effectiveSellPrice = trade.price - (trade.commission != null && trade.quantity > 0
+            ? trade.commission / trade.quantity
+            : 0)
+          realizedPL += (effectiveSellPrice - avgCost) * trade.quantity
+          runningCost -= avgCost * trade.quantity
+          runningQty -= trade.quantity
+          if (runningQty < 0) runningQty = 0
+          if (runningCost < 0) runningCost = 0
+        } else if (trade.type === 'dividend') {
+          dividendTotal += trade.price
+          realizedPL += trade.price
+          hasActivity = true
+        } else if (trade.type === 'split') {
+          const ratio = trade.quantity
+          if (ratio > 0) {
+            runningQty *= ratio
+            // cost stays same
           }
         }
-      } else if (trade.type === 'dividend') {
-        // Dividend amount stored in price field
-        dividendTotal += trade.price
-        realizedPL += trade.price
-        hasActivity = true
-      } else if (trade.type === 'split') {
-        // Apply split ratio to all existing lots
-        const ratio = trade.quantity
-        if (ratio > 0) {
-          for (const lot of lots) {
-            lot.quantity *= ratio
-            lot.price /= ratio
+      }
+    } else {
+      // FIFO
+      const lots: Lot[] = []
+
+      for (const trade of sorted) {
+        if (trade.type === 'buy') {
+          // Include commission in cost basis (per-share)
+          const commissionPerShare = trade.commission != null && trade.quantity > 0
+            ? trade.commission / trade.quantity
+            : 0
+          lots.push({ price: trade.price + commissionPerShare, quantity: trade.quantity, date: trade.date })
+        } else if (trade.type === 'sell') {
+          hasActivity = true
+          // Deduct sell commission from effective sell price
+          const effectiveSellPrice = trade.price - (trade.commission != null && trade.quantity > 0
+            ? trade.commission / trade.quantity
+            : 0)
+          let remaining = trade.quantity
+          while (remaining > 0 && lots.length > 0) {
+            const lot = lots[0]
+            const consumed = Math.min(lot.quantity, remaining)
+            realizedPL += (effectiveSellPrice - lot.price) * consumed
+            remaining -= consumed
+            if (lot.quantity <= consumed) {
+              lots.shift()
+            } else {
+              lot.quantity -= consumed
+            }
+          }
+        } else if (trade.type === 'dividend') {
+          // Dividend amount stored in price field
+          dividendTotal += trade.price
+          realizedPL += trade.price
+          hasActivity = true
+        } else if (trade.type === 'split') {
+          // Apply split ratio to all existing lots
+          const ratio = trade.quantity
+          if (ratio > 0) {
+            for (const lot of lots) {
+              lot.quantity *= ratio
+              lot.price /= ratio
+            }
           }
         }
       }
@@ -143,11 +179,15 @@ export function computePortfolioHistory(
 // ── Position calculation ──────────────────────────────────────────────────────
 
 /**
- * Calculate positions from trades using FIFO method.
+ * Calculate positions from trades using FIFO or Average Cost method.
  * Handles buy/sell/split/dividend trades.
  * Returns only positions with remaining quantity > 0.
  */
-export function computePositions(trades: Trade[], fallbackExchangeRate = 1380): Position[] {
+export function computePositions(
+  trades: Trade[],
+  fallbackExchangeRate = 1380,
+  method: 'fifo' | 'average' = 'fifo'
+): Position[] {
   if (trades.length === 0) return []
 
   // Group trades by ticker
@@ -161,88 +201,156 @@ export function computePositions(trades: Trade[], fallbackExchangeRate = 1380): 
   const positions: Position[] = []
 
   for (const [ticker, tickerTrades] of tradesByTicker) {
-    // Sort chronologically for FIFO
+    // Sort chronologically
     const sorted = [...tickerTrades].sort(
       (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()
     )
 
     const meta = sorted[sorted.length - 1] // latest trade for name/market
-    const lots: Lot[] = []
+    const baseCurrency = getBaseCurrency(meta.market, ticker)
     let dividendTotal = 0
 
-    for (const trade of sorted) {
-      if (trade.type === 'buy') {
-        // Include commission in cost basis (per-share)
-        const commissionPerShare = trade.commission != null && trade.quantity > 0
-          ? trade.commission / trade.quantity
-          : 0
-        lots.push({
-          price: trade.price + commissionPerShare,
-          quantity: trade.quantity,
-          date: trade.date,
-          exchangeRate: trade.exchangeRateAtPurchase,
-        })
-      } else if (trade.type === 'sell') {
-        // FIFO sell
-        let remaining = trade.quantity
-        while (remaining > 0 && lots.length > 0) {
-          const lot = lots[0]
-          if (lot.quantity <= remaining) {
-            remaining -= lot.quantity
-            lots.shift()
+    if (method === 'average') {
+      let runningCost = 0
+      let runningQty = 0
+      let runningCostKRW = 0
+
+      for (const trade of sorted) {
+        if (trade.type === 'buy') {
+          const commissionTotal = trade.commission ?? 0
+          runningCost += trade.price * trade.quantity + commissionTotal
+          runningQty += trade.quantity
+          if (baseCurrency === 'USD') {
+            const rate = trade.exchangeRateAtPurchase ?? fallbackExchangeRate
+            runningCostKRW += (trade.price * trade.quantity + commissionTotal) * rate
           } else {
-            lot.quantity -= remaining
-            remaining = 0
+            runningCostKRW += trade.price * trade.quantity + commissionTotal
           }
-        }
-      } else if (trade.type === 'split') {
-        // Apply split ratio to all existing lots
-        const ratio = trade.quantity
-        if (ratio > 0) {
-          for (const lot of lots) {
-            lot.quantity *= ratio
-            lot.price /= ratio
+        } else if (trade.type === 'sell') {
+          const avgCost = runningQty > 0 ? runningCost / runningQty : 0
+          const avgCostKRW = runningQty > 0 ? runningCostKRW / runningQty : 0
+          runningCost -= avgCost * trade.quantity
+          runningCostKRW -= avgCostKRW * trade.quantity
+          runningQty -= trade.quantity
+          if (runningQty < 0) runningQty = 0
+          if (runningCost < 0) runningCost = 0
+          if (runningCostKRW < 0) runningCostKRW = 0
+        } else if (trade.type === 'split') {
+          const ratio = trade.quantity
+          if (ratio > 0) {
+            runningQty *= ratio
+            // cost stays same
           }
+        } else if (trade.type === 'dividend') {
+          dividendTotal += trade.price
         }
-      } else if (trade.type === 'dividend') {
-        dividendTotal += trade.price
       }
+
+      if (runningQty <= 0) continue
+
+      const totalCostBasis = runningCost
+      const avgPrice = runningQty > 0 ? totalCostBasis / runningQty : 0
+      const totalCostKRW = baseCurrency === 'USD' ? runningCostKRW : totalCostBasis
+      const avgPriceKRW = runningQty > 0 ? totalCostKRW / runningQty : 0
+
+      positions.push({
+        ticker,
+        name: meta.name,
+        market: meta.market,
+        baseCurrency,
+        quantity: runningQty,
+        avgPrice,
+        avgPriceKRW,
+        totalCost: totalCostBasis,
+        totalCostKRW,
+        currentPrice: 0,
+        totalValue: 0,
+        totalValueKRW: 0,
+        profitLoss: 0,
+        profitLossPercent: 0,
+        profitLossKRW: 0,
+        profitLossPercentKRW: 0,
+        dayChange: 0,
+        dividendTotal,
+        trades: tickerTrades,
+      })
+    } else {
+      // FIFO
+      const lots: Lot[] = []
+
+      for (const trade of sorted) {
+        if (trade.type === 'buy') {
+          // Include commission in cost basis (per-share)
+          const commissionPerShare = trade.commission != null && trade.quantity > 0
+            ? trade.commission / trade.quantity
+            : 0
+          lots.push({
+            price: trade.price + commissionPerShare,
+            quantity: trade.quantity,
+            date: trade.date,
+            exchangeRate: trade.exchangeRateAtPurchase,
+          })
+        } else if (trade.type === 'sell') {
+          // FIFO sell
+          let remaining = trade.quantity
+          while (remaining > 0 && lots.length > 0) {
+            const lot = lots[0]
+            if (lot.quantity <= remaining) {
+              remaining -= lot.quantity
+              lots.shift()
+            } else {
+              lot.quantity -= remaining
+              remaining = 0
+            }
+          }
+        } else if (trade.type === 'split') {
+          // Apply split ratio to all existing lots
+          const ratio = trade.quantity
+          if (ratio > 0) {
+            for (const lot of lots) {
+              lot.quantity *= ratio
+              lot.price /= ratio
+            }
+          }
+        } else if (trade.type === 'dividend') {
+          dividendTotal += trade.price
+        }
+      }
+
+      const totalQuantity = lots.reduce((sum, l) => sum + l.quantity, 0)
+      if (totalQuantity <= 0) continue
+
+      const totalCostBasis = lots.reduce((sum, l) => sum + l.price * l.quantity, 0)
+      const avgPrice = totalCostBasis / totalQuantity
+
+      // KRW cost basis: for USD stocks, use purchase exchange rates
+      const totalCostKRW = baseCurrency === 'USD'
+        ? lots.reduce((sum, l) => sum + l.price * l.quantity * (l.exchangeRate ?? fallbackExchangeRate), 0)
+        : totalCostBasis  // KRX: already KRW
+      const avgPriceKRW = totalQuantity > 0 ? totalCostKRW / totalQuantity : 0
+
+      positions.push({
+        ticker,
+        name: meta.name,
+        market: meta.market,
+        baseCurrency,
+        quantity: totalQuantity,
+        avgPrice,
+        avgPriceKRW,
+        totalCost: totalCostBasis,
+        totalCostKRW,
+        currentPrice: 0,
+        totalValue: 0,
+        totalValueKRW: 0,
+        profitLoss: 0,
+        profitLossPercent: 0,
+        profitLossKRW: 0,
+        profitLossPercentKRW: 0,
+        dayChange: 0,
+        dividendTotal,
+        trades: tickerTrades,
+      })
     }
-
-    const totalQuantity = lots.reduce((sum, l) => sum + l.quantity, 0)
-    if (totalQuantity <= 0) continue
-
-    const totalCostBasis = lots.reduce((sum, l) => sum + l.price * l.quantity, 0)
-    const avgPrice = totalCostBasis / totalQuantity
-    const baseCurrency = getBaseCurrency(meta.market, ticker)
-
-    // KRW cost basis: for USD stocks, use purchase exchange rates
-    const totalCostKRW = baseCurrency === 'USD'
-      ? lots.reduce((sum, l) => sum + l.price * l.quantity * (l.exchangeRate ?? fallbackExchangeRate), 0)
-      : totalCostBasis  // KRX: already KRW
-    const avgPriceKRW = totalQuantity > 0 ? totalCostKRW / totalQuantity : 0
-
-    positions.push({
-      ticker,
-      name: meta.name,
-      market: meta.market,
-      baseCurrency,
-      quantity: totalQuantity,
-      avgPrice,
-      avgPriceKRW,
-      totalCost: totalCostBasis,
-      totalCostKRW,
-      currentPrice: 0,
-      totalValue: 0,
-      totalValueKRW: 0,
-      profitLoss: 0,
-      profitLossPercent: 0,
-      profitLossKRW: 0,
-      profitLossPercentKRW: 0,
-      dayChange: 0,
-      dividendTotal,
-      trades: tickerTrades,
-    })
   }
 
   return positions.sort((a, b) => b.totalCost - a.totalCost)
@@ -381,4 +489,72 @@ export function computeCAGR(
   const years = holdingDays / 365
   if (years < 0.5) return null // Not meaningful for very short periods
   return (Math.pow(totalValue / totalInvested, 1 / years) - 1) * 100
+}
+
+export function computeYOC(
+  trades: Trade[],
+  positions: Position[],
+  displayCurrency: 'KRW' | 'USD',
+  exchangeRate: number
+): number | null {
+  // Get dividends from last 12 months
+  const cutoff = new Date()
+  cutoff.setFullYear(cutoff.getFullYear() - 1)
+  const cutoffStr = cutoff.toISOString().slice(0, 10)
+
+  let dividendTotal = 0
+  for (const trade of trades) {
+    if (trade.type !== 'dividend') continue
+    if (trade.date < cutoffStr) continue
+    const base = getBaseCurrency(trade.market, trade.ticker)
+    dividendTotal += convertToDisplay(trade.price, base, displayCurrency, exchangeRate)
+  }
+
+  if (dividendTotal === 0) return null
+
+  // Total cost in display currency
+  const totalCost = positions.reduce((sum, p) => {
+    if (displayCurrency === 'KRW') {
+      return sum + (p.baseCurrency === 'USD' ? p.totalCostKRW : p.totalCost)
+    }
+    return sum + (p.baseCurrency === 'USD' ? p.totalCost : p.totalCost / exchangeRate)
+  }, 0)
+
+  if (totalCost === 0) return null
+  return (dividendTotal / totalCost) * 100
+}
+
+export function computeMDD(snapshots: import('../types').PortfolioSnapshot[]): number | null {
+  if (snapshots.length < 10) return null
+  let peak = snapshots[0].valueKRW
+  let maxDD = 0
+  for (const s of snapshots) {
+    if (s.valueKRW > peak) peak = s.valueKRW
+    if (peak > 0) {
+      const dd = (peak - s.valueKRW) / peak
+      if (dd > maxDD) maxDD = dd
+    }
+  }
+  return maxDD * 100
+}
+
+export function computeSharpe(
+  snapshots: import('../types').PortfolioSnapshot[],
+  riskFreeRate: number
+): number | null {
+  if (snapshots.length < 30) return null
+  const sorted = [...snapshots].sort((a, b) => a.date.localeCompare(b.date))
+  const returns: number[] = []
+  for (let i = 1; i < sorted.length; i++) {
+    const prev = sorted[i - 1].valueKRW
+    if (prev > 0) returns.push((sorted[i].valueKRW - prev) / prev)
+  }
+  if (returns.length < 20) return null
+  const mean = returns.reduce((s, r) => s + r, 0) / returns.length
+  const variance = returns.reduce((s, r) => s + Math.pow(r - mean, 2), 0) / returns.length
+  const stdDev = Math.sqrt(variance)
+  if (stdDev === 0) return null
+  const annualizedReturn = Math.pow(1 + mean, 252) - 1
+  const annualizedStdDev = stdDev * Math.sqrt(252)
+  return (annualizedReturn - riskFreeRate) / annualizedStdDev
 }

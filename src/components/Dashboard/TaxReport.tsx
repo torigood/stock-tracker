@@ -18,6 +18,7 @@ export function TaxReport() {
   const exchangeRate = usePortfolioStore((s) => s.exchangeRate)
   const exchangeRateOverride = usePortfolioStore((s) => s.exchangeRateOverride)
   const taxRate = usePortfolioStore((s) => s.taxRate)
+  const costBasisMethod = usePortfolioStore((s) => s.costBasisMethod)
   const { fmtAmount } = useCurrency()
   const { t } = useI18n()
 
@@ -37,7 +38,7 @@ export function TaxReport() {
     }
 
     // Realized gains: attribute to sell year proportionally (same logic as MonthlyPLChart)
-    const records = computeRealizedPL(trades)
+    const records = computeRealizedPL(trades, costBasisMethod)
     for (const record of records) {
       if (record.dividendTotal > 0) continue
       const sellTrades = trades
@@ -63,7 +64,7 @@ export function TaxReport() {
         return { year, ...data, total, estimatedTax }
       })
       .sort((a, b) => b.year - a.year)
-  }, [trades, displayCurrency, effectiveRate, taxRate])
+  }, [trades, displayCurrency, effectiveRate, taxRate, costBasisMethod])
 
   return (
     <div className="card p-5">

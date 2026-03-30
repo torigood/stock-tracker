@@ -24,17 +24,27 @@ export function RebalancingCalculator({ positions }: Props) {
   const { t } = useI18n()
 
   const displayCurrency = usePortfolioStore((s) => s.displayCurrency)
+  const exchangeRate = usePortfolioStore((s) => s.exchangeRate)
   const [editingTicker, setEditingTicker] = useState<string | null>(null)
   const [inputValues, setInputValues] = useState<Record<string, string>>({})
 
   const totalValue = useMemo(
-    () => positions.reduce((sum, p) => sum + (p.totalValue > 0 ? p.totalValue : p.totalCost), 0),
-    [positions],
+    () => positions.reduce((sum, p) => {
+      const val = p.totalValue > 0 ? p.totalValue : p.totalCost
+      if (displayCurrency === 'KRW') {
+        return sum + (p.baseCurrency === 'USD' ? val * exchangeRate : val)
+      }
+      return sum + (p.baseCurrency === 'USD' ? val : val / exchangeRate)
+    }, 0),
+    [positions, displayCurrency, exchangeRate],
   )
 
   const rows = useMemo<RebalanceRow[]>(() => {
     return positions.map((p) => {
-      const currentValue = p.totalValue > 0 ? p.totalValue : p.totalCost
+      const rawVal = p.totalValue > 0 ? p.totalValue : p.totalCost
+      const currentValue = displayCurrency === 'KRW'
+        ? (p.baseCurrency === 'USD' ? rawVal * exchangeRate : rawVal)
+        : (p.baseCurrency === 'USD' ? rawVal : rawVal / exchangeRate)
       const currentWeight = totalValue > 0 ? (currentValue / totalValue) * 100 : 0
       const targetWeight = targetAllocation[p.ticker] ?? 0
       const diff = targetWeight - currentWeight
@@ -43,7 +53,7 @@ export function RebalancingCalculator({ positions }: Props) {
         diff > 0.5 ? 'buy' : diff < -0.5 ? 'sell' : 'hold'
       return { ticker: p.ticker, currentWeight, targetWeight, diff, action, amount }
     })
-  }, [positions, targetAllocation, totalValue])
+  }, [positions, targetAllocation, totalValue, displayCurrency, exchangeRate])
 
   const targetSum = useMemo(() => rows.reduce((sum, r) => sum + r.targetWeight, 0), [rows])
 

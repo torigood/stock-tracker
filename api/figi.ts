@@ -1,4 +1,5 @@
 // Vercel Serverless Function — OpenFIGI ISIN → Ticker resolver
+export const config = { runtime: 'edge' }
 
 interface FigiItem {
   ticker?: string

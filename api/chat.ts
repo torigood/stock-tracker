@@ -1,4 +1,5 @@
 // Vercel Serverless Function — AI Chat (OpenRouter + tool calling)
+export const config = { runtime: 'edge' }
 
 const DISCLAIMER =
   '\n\n---\n*이 정보는 참고용이며, 투자 결정의 근거로 삼지 마세요.*'

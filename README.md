@@ -1,73 +1,69 @@
-# React + TypeScript + Vite
+# StockTracker
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+**해외주식 포트폴리오를 한 눈에. 무료로, 계정 없이.**
 
-Currently, two official plugins are available:
+> 🌐 **[stockes-tracking-six-sigma.vercel.app](https://stockes-tracking-six-sigma.vercel.app)**
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+---
 
-## React Compiler
+## 주요 기능
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+### 포트폴리오 관리
+- 여러 포트폴리오를 탭으로 분리해 관리
+- 미국주식·한국주식·ETF 통합 지원
+- KRW / USD 실시간 환율 전환
+- 평균단가·FIFO 방식 손익 계산
+- 배당금 추적 및 YOC(배당수익률) 분석
 
-## Expanding the ESLint configuration
+### 거래 내역
+- 매수·매도·배당·주식분할 기록
+- 브로커 CSV 자동 가져오기 (키움·미래에셋·NH투자증권·해외주식)
+- ISIN 코드 자동 인식 → 티커 변환 (OpenFIGI 연동)
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+### 대시보드 위젯
+- 포트폴리오 현황 카드 (수익률·손익·평가금액)
+- 자산 배분 도넛 차트
+- 월별 손익 바 차트
+- 벤치마크 비교 차트 (S&P 500·나스닥·코스피)
+- 국가별 히트맵
+- 리밸런싱 계산기
+- 배당 캘린더
+- 종목 뉴스 피드
+- MDD·샤프지수 등 성과 지표
+- 드래그 앤 드롭으로 위젯 배치 커스텀
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+### AI 도우미
+- 포트폴리오 데이터 기반 AI 채팅
+- 실시간 주가 조회 및 분석 지원
 
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
+### 기타
+- PWA 지원 — 홈 화면에 앱처럼 설치 가능
+- 모든 데이터는 브라우저 로컬에 저장 (서버 전송 없음)
+- JSON 내보내기·가져오기로 백업 및 복원
+- 다크 모드 지원
+- 한국어 / 영어 전환
 
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+---
+
+## 시작하기
+
+계정 가입이나 로그인 없이 바로 사용할 수 있습니다.
+
+1. [사이트 접속](https://stockes-tracking-six-sigma.vercel.app)
+2. **+ 거래 입력**으로 첫 거래 추가
+3. 또는 **데이터 관리 → 증권사 CSV 가져오기**로 기존 내역 한 번에 불러오기
+
+---
+
+## 로컬 개발
+
+```bash
+npm install
+npm run dev
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+---
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+## 기술 스택
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-```
+React · TypeScript · Vite · Tailwind CSS · Zustand · Vercel

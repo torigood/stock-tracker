@@ -169,11 +169,38 @@ export function DataManager({ open, onClose }: Props) {
     reader.readAsText(file)
   }
 
+  const ISIN_RE = /^[A-Z]{2}[A-Z0-9]{10}$/
+
+  async function resolveISINs(incoming: Trade[]): Promise<Trade[]> {
+    const unresolvedISINs = [...new Set(
+      incoming.map((t) => t.ticker).filter((tk) => ISIN_RE.test(tk))
+    )]
+    if (!unresolvedISINs.length) return incoming
+
+    try {
+      const res = await fetch('/api/figi', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ isins: unresolvedISINs }),
+      })
+      if (!res.ok) return incoming
+      const map = (await res.json()) as Record<string, { ticker: string; market: string }>
+
+      return incoming.map((trade) => {
+        const resolved = map[trade.ticker]
+        if (!resolved) return trade
+        return { ...trade, ticker: resolved.ticker, market: resolved.market as Trade['market'] }
+      })
+    } catch {
+      return incoming
+    }
+  }
+
   function handleBrokerCSVChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
     if (!file) return
     const reader = new FileReader()
-    reader.onload = (ev) => {
+    reader.onload = async (ev) => {
       try {
         const raw = ev.target?.result as string
         const { trades: incoming, broker, error } = parseBrokerCSV(raw)
@@ -188,14 +215,16 @@ export function DataManager({ open, onClose }: Props) {
           return
         }
 
-        const message = t('data.brokerDetected', { broker, n: incoming.length }) +
-          '\n\n' + t('data.confirmImport', { n: incoming.length, t: trades.length })
+        const resolved = await resolveISINs(incoming)
+
+        const message = t('data.brokerDetected', { broker, n: resolved.length }) +
+          '\n\n' + t('data.confirmImport', { n: resolved.length, t: trades.length })
 
         requestConfirm({
           title: t('confirm.importTitle'),
           message,
           variant: 'primary',
-          onConfirm: () => { importTrades(incoming); onClose() },
+          onConfirm: () => { importTrades(resolved); onClose() },
         })
       } catch { alert(t('data.csvError')) }
       finally { if (brokerInputRef.current) brokerInputRef.current.value = '' }

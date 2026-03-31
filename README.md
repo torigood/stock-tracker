@@ -1,5 +1,79 @@
 # StockTracker
 
+**Track your global portfolio — free, no account needed.**
+
+> 🌐 **[stockes-tracking-six-sigma.vercel.app](https://stockes-tracking-six-sigma.vercel.app)**
+
+---
+
+## Features
+
+### Portfolio Management
+- Multiple portfolios in separate tabs
+- US stocks, Korean stocks, and ETFs in one place
+- Real-time KRW / USD currency switching
+- Avg cost & FIFO P&L calculation
+- Dividend tracking and YOC analysis
+
+### Trade History
+- Buy, sell, dividend, and stock split records
+- Broker CSV auto-import (Kiwoom, Mirae Asset, NH, overseas stocks)
+- ISIN code auto-recognition → ticker conversion (OpenFIGI)
+
+### Dashboard Widgets
+- Portfolio summary cards (return, P&L, value)
+- Asset allocation donut chart
+- Monthly P&L bar chart
+- Benchmark comparison (S&P 500, Nasdaq, KOSPI)
+- Country heatmap
+- Rebalancing calculator
+- Dividend calendar
+- Stock news feed
+- MDD, Sharpe ratio, and other performance metrics
+- Drag-and-drop widget layout
+
+### AI Assistant
+- AI chat powered by your portfolio data
+- Real-time price lookup and analysis
+
+### More
+- PWA support — installable as an app
+- All data stored locally in your browser (nothing sent to a server)
+- JSON export/import for backup and restore
+- Dark mode
+- Korean / English toggle
+
+---
+
+## Getting Started
+
+No sign-up or login required.
+
+1. Visit [the site](https://stockes-tracking-six-sigma.vercel.app)
+2. Add your first trade with **+ Add Trade**
+3. Or import existing history via **Data Manager → Import Broker CSV**
+
+---
+
+## Local Development
+
+```bash
+npm install
+npm run dev
+```
+
+---
+
+## Tech Stack
+
+React · TypeScript · Vite · Tailwind CSS · Zustand · Vercel
+
+---
+
+---
+
+# StockTracker (한국어)
+
 **해외주식 포트폴리오를 한 눈에. 무료로, 계정 없이.**
 
 > 🌐 **[stockes-tracking-six-sigma.vercel.app](https://stockes-tracking-six-sigma.vercel.app)**

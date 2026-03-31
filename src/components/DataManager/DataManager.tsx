@@ -199,37 +199,47 @@ export function DataManager({ open, onClose }: Props) {
   function handleBrokerCSVChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
     if (!file) return
-    const reader = new FileReader()
-    reader.onload = async (ev) => {
-      try {
-        const raw = ev.target?.result as string
-        const { trades: incoming, broker, error } = parseBrokerCSV(raw)
 
-        if (error || broker === 'unknown') {
-          alert(t('data.brokerUnknown'))
-          return
-        }
+    const tryParse = (encoding: string, fallbackEncoding?: string) => {
+      const reader = new FileReader()
+      reader.onload = async (ev) => {
+        try {
+          const raw = ev.target?.result as string
+          const { trades: incoming, broker, error } = parseBrokerCSV(raw)
 
-        if (incoming.length === 0) {
-          alert(t('data.csvNoTrades'))
-          return
-        }
+          if ((error || broker === 'unknown') && fallbackEncoding) {
+            tryParse(fallbackEncoding)
+            return
+          }
 
-        const resolved = await resolveISINs(incoming)
+          if (error || broker === 'unknown') {
+            alert(t('data.brokerUnknown'))
+            return
+          }
 
-        const message = t('data.brokerDetected', { broker, n: resolved.length }) +
-          '\n\n' + t('data.confirmImport', { n: resolved.length, t: trades.length })
+          if (incoming.length === 0) {
+            alert(t('data.csvNoTrades'))
+            return
+          }
 
-        requestConfirm({
-          title: t('confirm.importTitle'),
-          message,
-          variant: 'primary',
-          onConfirm: () => { importTrades(resolved); onClose() },
-        })
-      } catch { alert(t('data.csvError')) }
-      finally { if (brokerInputRef.current) brokerInputRef.current.value = '' }
+          const resolved = await resolveISINs(incoming)
+
+          const message = t('data.brokerDetected', { broker, n: resolved.length }) +
+            '\n\n' + t('data.confirmImport', { n: resolved.length, t: trades.length })
+
+          requestConfirm({
+            title: t('confirm.importTitle'),
+            message,
+            variant: 'primary',
+            onConfirm: () => { importTrades(resolved); onClose() },
+          })
+        } catch { alert(t('data.csvError')) }
+        finally { if (brokerInputRef.current) brokerInputRef.current.value = '' }
+      }
+      reader.readAsText(file, encoding)
     }
-    reader.readAsText(file, 'euc-kr')
+
+    tryParse('utf-8', 'euc-kr')
   }
 
   function handleExportCSV() {

@@ -44,8 +44,8 @@ export function useConfirm(suppressKey: string) {
 
   const confirmDialog = pending ? (
     <>
-      <div className="fixed inset-0 bg-black/60 z-40 backdrop-blur-sm" onClick={handleCancel} />
-      <div className="fixed inset-0 z-50 flex items-center justify-center px-4 pointer-events-none">
+      <div className="fixed inset-0 bg-black/60 z-[80] backdrop-blur-sm" onClick={handleCancel} />
+      <div className="fixed inset-0 z-[90] flex items-center justify-center px-4 pointer-events-none">
         <div className="bg-surface-900 border border-slate-800 rounded-xl shadow-2xl w-full max-w-xs pointer-events-auto">
           {/* Header */}
           <div className="flex items-center justify-between px-4 py-3 border-b border-slate-800">

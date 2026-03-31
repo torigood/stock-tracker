@@ -22,7 +22,6 @@ export function DataManager({ open, onClose }: Props) {
   const { confirmDialog, requestConfirm } = useConfirm('import-data')
 
   const fileInputRef = useRef<HTMLInputElement>(null)
-  const csvInputRef = useRef<HTMLInputElement>(null)
   const brokerInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
@@ -73,7 +72,6 @@ export function DataManager({ open, onClose }: Props) {
   }
 
   function handleImportJSON() { fileInputRef.current?.click() }
-  function handleImportCSV() { csvInputRef.current?.click() }
   function handleImportBrokerCSV() { brokerInputRef.current?.click() }
 
   function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
@@ -113,61 +111,6 @@ export function DataManager({ open, onClose }: Props) {
     reader.readAsText(file)
   }
 
-  function handleCSVChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0]
-    if (!file) return
-    const reader = new FileReader()
-    reader.onload = (ev) => {
-      try {
-        const raw = ev.target?.result as string
-        // Remove BOM if present
-        const text = raw.startsWith('\uFEFF') ? raw.slice(1) : raw
-        const lines = text.split(/\r?\n/).filter((l) => l.trim())
-        if (lines.length < 2) { alert(t('data.csvNoTrades')); return }
-
-        // Skip header row, parse trades
-        const incoming: Trade[] = []
-        const TYPE_MAP: Record<string, Trade['type']> = {
-          '매수': 'buy', 'buy': 'buy',
-          '매도': 'sell', 'sell': 'sell',
-          '배당': 'dividend', 'dividend': 'dividend',
-          '분할': 'split', 'split': 'split',
-        }
-
-        for (let i = 1; i < lines.length; i++) {
-          // Parse CSV properly (handle quoted fields)
-          const cells = parseCSVLine(lines[i])
-          if (cells.length < 8) continue
-          // Format: portfolio, date, ticker, name, market, type, quantity, price, amount, note
-          const [, date, ticker, name, market, typeRaw, qty, priceRaw, , note] = cells
-          const tradeType = TYPE_MAP[typeRaw?.toLowerCase() ?? '']
-          if (!tradeType || !ticker || !date) continue
-          incoming.push({
-            id: crypto.randomUUID(),
-            ticker: ticker.trim().toUpperCase(),
-            name: (name ?? ticker).trim(),
-            market: (['KRX', 'US', 'ETF'].includes(market?.trim() ?? '') ? market.trim() : 'US') as Trade['market'],
-            type: tradeType,
-            quantity: parseFloat(qty) || 0,
-            price: parseFloat(priceRaw) || 0,
-            date: date.trim(),
-            note: (note ?? '').trim(),
-            createdAt: new Date().toISOString(),
-          })
-        }
-
-        if (incoming.length === 0) { alert(t('data.csvNoTrades')); return }
-        requestConfirm({
-          title: t('confirm.importTitle'),
-          message: t('data.confirmImport', { n: incoming.length, t: trades.length }),
-          variant: 'primary',
-          onConfirm: () => { importTrades(incoming); onClose() },
-        })
-      } catch { alert(t('data.csvError')) }
-      finally { if (csvInputRef.current) csvInputRef.current.value = '' }
-    }
-    reader.readAsText(file)
-  }
 
   const ISIN_RE = /^[A-Z]{2}[A-Z0-9]{10}$/
 
@@ -291,42 +234,17 @@ export function DataManager({ open, onClose }: Props) {
             <ActionButton icon={<DownloadIcon />} label={t('data.exportJSON')} description={t('data.exportJSONDesc')} onClick={handleExportJSON} />
             <ActionButton icon={<UploadIcon />} label={t('data.importJSON')} description={t('data.importJSONDesc')} onClick={handleImportJSON} danger />
             <ActionButton icon={<CsvIcon />} label={t('data.exportCSV')} description={t('data.exportCSVDesc')} onClick={handleExportCSV} />
-            <ActionButton icon={<UploadIcon />} label={t('data.importCSV')} description={t('data.importCSVDesc')} onClick={handleImportCSV} danger />
             <ActionButton icon={<BrokerIcon />} label={t('data.importBrokerCSV')} description={t('data.importBrokerCSVDesc')} onClick={handleImportBrokerCSV} danger />
           </div>
         </div>
       </div>
 
       <input ref={fileInputRef} type="file" accept=".json" className="hidden" onChange={handleFileChange} />
-      <input ref={csvInputRef} type="file" accept=".csv" className="hidden" onChange={handleCSVChange} />
       <input ref={brokerInputRef} type="file" accept=".csv" className="hidden" onChange={handleBrokerCSVChange} />
     </>
   )
 }
 
-function parseCSVLine(line: string): string[] {
-  const cells: string[] = []
-  let i = 0
-  while (i < line.length) {
-    if (line[i] === '"') {
-      let cell = ''
-      i++
-      while (i < line.length) {
-        if (line[i] === '"' && line[i + 1] === '"') { cell += '"'; i += 2 }
-        else if (line[i] === '"') { i++; break }
-        else { cell += line[i++] }
-      }
-      cells.push(cell)
-      if (line[i] === ',') i++
-    } else {
-      const end = line.indexOf(',', i)
-      if (end === -1) { cells.push(line.slice(i)); break }
-      cells.push(line.slice(i, end))
-      i = end + 1
-    }
-  }
-  return cells
-}
 
 function ActionButton({ icon, label, description, onClick, danger = false }: {
   icon: React.ReactNode; label: string; description: string; onClick: () => void; danger?: boolean
